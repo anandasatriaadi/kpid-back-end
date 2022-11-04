@@ -28,6 +28,15 @@ def get_all_users(current_user):
     response.setResponse(output, HTTPStatus.OK)
     return response.__dict__, response.status
 
+# ======== GET : get user by token ========
+@token_required
+def get_user(current_user):
+    response = BaseResponse()
+    current_user.pop('_id')
+    current_user.pop('password')
+    response.setResponse(current_user, HTTPStatus.OK)
+    return response.__dict__, response.status
+
 # ======== POST : create user ========
 def signup_user():
     response = BaseResponse()
@@ -55,6 +64,7 @@ def login_user():
         email = request.form.get('email')
         password = request.form.get('password')
         user_res = users.find_one({'email' : email})
+        logger.info(request.form.keys())
         if user_res:
             if check_password_hash(user_res['password'], password):
                 access_token = jwt.encode({
@@ -62,7 +72,9 @@ def login_user():
                     'email': user_res['email'],
                     'exp' : datetime.utcnow() + timedelta(minutes = 30)
                 }, SECRET_KEY, algorithm="HS256")
-                response.setResponse({"token": access_token}, HTTPStatus.OK)
+                user_res.pop('_id')
+                user_res.pop('password')
+                response.setResponse({"token": access_token, "user_data": user_res}, HTTPStatus.OK)
             else:
                 response.setResponse("Invalid username and password", HTTPStatus.BAD_REQUEST)
         else:
