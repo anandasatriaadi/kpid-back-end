@@ -15,5 +15,9 @@ app.register_blueprint(uc, url_prefix='/api')
 app.register_blueprint(fc, url_prefix='/api')
 CORS(app)
 
+@app.route("/ping")
+def main():
+	return "pong"
+
 if __name__ == "__main__":
     app.run(debug = True)
