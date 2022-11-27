@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request
 import jwt
 from functools import wraps
 from config import database, SECRET_KEY
