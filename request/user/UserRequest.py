@@ -10,3 +10,4 @@ class CreateUserRequest(object):
     name: str
     email: str
     password: str
+    user_id: str = None

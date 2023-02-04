@@ -2,5 +2,6 @@ from dataclasses import dataclass
 
 @dataclass
 class UserResponse(object):
-    name: str
-    email: str
+    user_id: str = None
+    name: str = None
+    email: str = None

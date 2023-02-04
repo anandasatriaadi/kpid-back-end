@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, Blueprint
 from flask_cors import CORS
 from controllers.userController import uc
 from controllers.formController import fc
@@ -11,8 +11,10 @@ app = Flask(__name__)
 
 app.config['SECRET_KEY'] = SECRET_KEY
 
-app.register_blueprint(uc, url_prefix='/api')
-app.register_blueprint(fc, url_prefix='/api')
+main = Blueprint('main', __name__, url_prefix='/api')
+main.register_blueprint(uc)
+main.register_blueprint(fc)
+app.register_blueprint(main)
 CORS(app)
 
 @app.route("/ping")

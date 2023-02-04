@@ -1,8 +1,12 @@
+from dataclasses import dataclass
+from http import HTTPStatus
+
+
+@dataclass
 class BaseResponse(object):
-    def __init__(self, data=None, status=None):
-        self.data = data
-        self.status = status
-    
+    data: any = None
+    status: HTTPStatus = None
+
     def setResponse(self, data, status):
         self.data = data
         self.status = status
