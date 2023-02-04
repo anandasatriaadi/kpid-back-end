@@ -130,7 +130,7 @@ def init_logging():
     console_level = "DEBUG"
     console_handler = logging.StreamHandler(stream=sys.stdout)
     console_handler.setLevel(console_level)
-    console_format = "%(asctime)s:%(levelname)-8s:%(message)s:::%(name)s.%(lineno)s"
+    console_format = "%(asctime)s: %(levelname)-8s: %(message)s ::: %(name)s.%(lineno)s"
     colored_formatter = ColorizedArgsFormatter(console_format)
     console_handler.setFormatter(colored_formatter)
     root_logger.addHandler(console_handler)

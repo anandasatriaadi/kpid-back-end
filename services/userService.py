@@ -1,15 +1,18 @@
-from http import HTTPStatus
 import logging
-from flask import request, jsonify, make_response
-from werkzeug.security import generate_password_hash, check_password_hash
-from controllers.utils import token_required
-import jwt
+from dataclasses import asdict
 from datetime import datetime, timedelta
+from http import HTTPStatus
 
-from config import database, SECRET_KEY
+import jwt
+from config import SECRET_KEY, database
+from controllers.utils import token_required
+from dacite import from_dict
+from flask import request
+from request.user.UserRequest import CreateUserRequest, LoginUserRequest
 from response.BaseResponse import BaseResponse
 from response.user.UserResponse import UserResponse
 from utils.CustomFormatter import init_logging
+from werkzeug.security import check_password_hash, generate_password_hash
 
 init_logging()
 logger = logging.getLogger(__name__)
@@ -22,7 +25,7 @@ def get_all_users(current_user):
     output = []
 
     for user in users.find():
-        res = UserResponse(user.get('name'), user.get('email'), user.get('profile'))
+        res = from_dict(data_class=UserResponse, data=user)
         output.append(res.__dict__)
 
     response.setResponse(output, HTTPStatus.OK)
@@ -32,8 +35,7 @@ def get_all_users(current_user):
 @token_required
 def get_user(current_user):
     response = BaseResponse()
-    current_user.pop('_id')
-    current_user.pop('password')
+    current_user = from_dict(data_class=UserResponse, data=current_user)
     response.setResponse(current_user, HTTPStatus.OK)
     return response.__dict__, response.status
 
@@ -42,16 +44,18 @@ def signup_user():
     response = BaseResponse()
     users = database["users"]
 
-    name = request.form.get('name')
-    email = request.form.get('email')
+    if request.mimetype == "application/json":
+        user_data = from_dict(data_class=CreateUserRequest, data=request.get_json())
+    else:
+        user_data = from_dict(data_class=CreateUserRequest, data=request.form)
 
-    user_res = users.find_one({'email' : email})
+    user_res = users.find_one({"email" : user_data.email})
     if user_res:
         response.setResponse("User already exists", HTTPStatus.BAD_REQUEST)
     else:
-        password = request.form.get('password')
-        hashed_password = generate_password_hash(password, 'sha256', 24)
-        users.insert_one({'name': name, 'email': email, 'password': hashed_password})
+        hashed_password = generate_password_hash(user_data.password, "sha256", 24)
+        user_data.password = hashed_password
+        users.insert_one(asdict(user_data))
         response.setResponse("User created successfully", HTTPStatus.CREATED)
         
     return response.__dict__, response.status
@@ -61,19 +65,22 @@ def login_user():
     response = BaseResponse()
     try:
         users = database["users"]
-        email = request.form.get('email')
-        password = request.form.get('password')
-        user_res = users.find_one({'email' : email})
-        logger.info(request.form.keys())
+        if request.mimetype == "application/json":
+            json_data = request.get_json()
+            userRequest = from_dict(data_class=LoginUserRequest, data=json_data)
+        else:
+            userRequest = from_dict(data_class=LoginUserRequest, data=request.form)
+        logger.info(userRequest)
+        user_res = users.find_one({"email" : userRequest.email})
+
         if user_res:
-            if check_password_hash(user_res['password'], password):
+            if check_password_hash(user_res["password"], userRequest.password):
                 access_token = jwt.encode({
-                    'name': user_res['name'],
-                    'email': user_res['email'],
-                    'exp' : datetime.utcnow() + timedelta(minutes = 30)
+                    "name": user_res["name"],
+                    "email": user_res["email"],
+                    "exp" : datetime.utcnow() + timedelta(hours = 24)
                 }, SECRET_KEY, algorithm="HS256")
-                user_res.pop('_id')
-                user_res.pop('password')
+                user_res = from_dict(data_class=UserResponse, data=user_res)
                 response.setResponse({"token": access_token, "user_data": user_res}, HTTPStatus.OK)
             else:
                 response.setResponse("Invalid username and password", HTTPStatus.BAD_REQUEST)
