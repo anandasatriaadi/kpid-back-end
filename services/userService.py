@@ -43,10 +43,10 @@ def get_all_users(current_user):
 
 # ======== GET : get user by token ========
 @token_required 
-def get_user(current_user, user_id):
+def get_user(current_user):
     response = BaseResponse()
     current_user = from_dict(data_class=UserResponse, data=current_user)
-    if current_user.user_id == user_id:
+    if current_user:
         response.setResponse(current_user, HTTPStatus.OK)
     else:
         response.setResponse("User not found", HTTPStatus.NOT_FOUND)
