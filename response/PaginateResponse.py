@@ -10,7 +10,7 @@ class PaginateResponse(BaseResponse):
     limit: int = None
     count: int = None
 
-    def setMetadata(self, page, limit, count):
+    def set_metadata(self, page, limit, count):
         self.page = page
         self.limit = limit
         self.count = count

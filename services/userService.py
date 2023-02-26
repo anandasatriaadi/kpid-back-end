@@ -26,9 +26,9 @@ def get_all_users(current_user):
     users = database["users"]
     output = []
 
-    page = int(__getParams(0, "page"))
-    limit = int(__getParams(10, "limit"))
-    sorts = __getParams("_id,ASC", "sort")
+    page = int(__get_params(0, "page"))
+    limit = int(__get_params(10, "limit"))
+    sorts = __get_params("_id,ASC", "sort")
     sort_field = sorts.split(',')[0]
     sort_order = sorts.split(',')[1]
 
@@ -37,8 +37,8 @@ def get_all_users(current_user):
         res = from_dict(data_class=UserResponse, data=user)
         output.append(res.__dict__)
 
-    response.setMetadata(page, limit, count)
-    response.setResponse(output, HTTPStatus.OK)
+    response.set_metadata(page, limit, count)
+    response.set_response(output, HTTPStatus.OK)
     return response.__dict__, response.status
 
 # ======== GET : get user by token ========
@@ -47,9 +47,9 @@ def get_user(current_user):
     response = BaseResponse()
     current_user = from_dict(data_class=UserResponse, data=current_user)
     if current_user:
-        response.setResponse(current_user, HTTPStatus.OK)
+        response.set_response(current_user, HTTPStatus.OK)
     else:
-        response.setResponse("User not found", HTTPStatus.NOT_FOUND)
+        response.set_response("User not found", HTTPStatus.NOT_FOUND)
     return response.__dict__, response.status
 
 # ======== POST : create user ========
@@ -64,13 +64,13 @@ def signup_user():
 
     user_res = users.find_one({"email" : user_data.email})
     if user_res:
-        response.setResponse("User already exists", HTTPStatus.BAD_REQUEST)
+        response.set_response("User already exists", HTTPStatus.BAD_REQUEST)
     else:
         hashed_password = generate_password_hash(user_data.password, "sha256", 24)
         user_data.password = hashed_password
         user_data.user_id = str(uuid.uuid4())
         users.insert_one(asdict(user_data))
-        response.setResponse("User created successfully", HTTPStatus.CREATED)
+        response.set_response("User created successfully", HTTPStatus.CREATED)
         
     return response.__dict__, response.status
 
@@ -91,16 +91,16 @@ def login_user():
                 user_encode = asdict(user_res)
                 user_encode["exp"] = datetime.utcnow() + timedelta(hours=24)
                 access_token = jwt.encode(user_encode, SECRET_KEY, algorithm="HS256")
-                response.setResponse({"token": access_token, "user_data": user_res}, HTTPStatus.OK)
+                response.set_response({"token": access_token, "user_data": user_res}, HTTPStatus.OK)
             else:
-                response.setResponse("Invalid username and password", HTTPStatus.BAD_REQUEST)
+                response.set_response("Invalid username and password", HTTPStatus.BAD_REQUEST)
         else:
-            response.setResponse("No results found", HTTPStatus.NOT_FOUND)
+            response.set_response("No results found", HTTPStatus.NOT_FOUND)
         return response.__dict__, response.status
     except Exception as e:
         logger.error(e)
-        response.setResponse("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
         return response.__dict__, response.status
 
-def __getParams(default_value, field):
+def __get_params(default_value, field):
     return default_value if request.args.get(field) == None else request.args.get(field)

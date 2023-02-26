@@ -7,6 +7,6 @@ class BaseResponse(object):
     data: any = None
     status: HTTPStatus = None
 
-    def setResponse(self, data, status):
+    def set_response(self, data, status):
         self.data = data
         self.status = status
