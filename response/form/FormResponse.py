@@ -1,4 +1,11 @@
+from dataclasses import dataclass
+
+
+@dataclass
 class FormResponse(object):
-    def __init__(self, data, status):
-        self.data = data
-        self.status = status
+    program_name: str
+    station_name: str
+    start_time: str
+    filename: str
+    frame_rate: float
+    duration: float
