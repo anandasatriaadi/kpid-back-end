@@ -14,4 +14,4 @@ api_bp.register_blueprint(user_bp)
 @api_bp.route("/ping", methods=["GET"])
 def ping():
     response = BaseResponse("ping", HTTPStatus.OK)
-    return response.__dict__, response.status
+    return response.get_response()

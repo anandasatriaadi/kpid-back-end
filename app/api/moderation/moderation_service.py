@@ -90,7 +90,7 @@ def upload_form(current_user):
         __cut_video(upload_info, video_metadata)
 
     response.set_response("i", HTTPStatus.OK)
-    return response.__dict__, response.status
+    return response.get_response()
 
 
 # ======== READ VIDEO METADATA ========

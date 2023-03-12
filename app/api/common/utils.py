@@ -22,7 +22,7 @@ def token_required(f):
         # return 401 if token is not passed
         if not token:
             response.set_response("Token is missing", 401)
-            return response.__dict__, response.status
+            return response.get_response()
 
         try:
             # decoding the payload to fetch the stored details
@@ -30,11 +30,11 @@ def token_required(f):
             current_user = database["users"].find_one({"email": data["email"]})
         except jwt.ExpiredSignatureError as e:
             response.set_response("Token is expired", 401)
-            return response.__dict__, response.status
+            return response.get_response()
         except Exception as e:
             logger.error(e)
             response.set_response("Token is invalid", 401)
-            return response.__dict__, response.status
+            return response.get_response()
         # returns the current logged in users contex to the routes
         return f(current_user, *args, **kwargs)
 
