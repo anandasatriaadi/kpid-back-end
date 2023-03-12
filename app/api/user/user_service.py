@@ -10,10 +10,7 @@ from flask import request
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.api.common.utils import token_required
-from app.dto.request.user_request import CreateUserRequest, LoginUserRequest
-from app.dto.response.base_response import BaseResponse
-from app.dto.response.paginate_response import PaginateResponse
-from app.dto.response.user_response import UserResponse
+from app.dto import BaseResponse, PaginateResponse, UserResponse, CreateUserRequest, LoginUserRequest
 from config import SECRET_KEY, database
 
 logger = logging.getLogger(__name__)

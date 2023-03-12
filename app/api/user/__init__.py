@@ -1,3 +1,1 @@
-from flask import Blueprint
-
-user = Blueprint('user_controller', __name__)
+from app.api.user.user_controller import user_bp

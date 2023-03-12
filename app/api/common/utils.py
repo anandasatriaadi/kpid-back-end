@@ -4,7 +4,7 @@ from functools import wraps
 import jwt
 from flask import request
 
-from app.dto.response.base_response import BaseResponse
+from app.dto import BaseResponse
 from config import SECRET_KEY, database
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from response.base_response import BaseResponse
+from app.dto.response.base_response import BaseResponse
 
 
 @dataclass

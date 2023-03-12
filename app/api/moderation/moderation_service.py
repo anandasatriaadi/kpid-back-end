@@ -14,9 +14,7 @@ from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from app.api.common.utils import token_required
-from app.dto.request.moderation_request import CreateModerationRequest
-from app.dto.response.base_response import BaseResponse
-from app.dto.response.moderation_response import ModerationResponse
+from app.dto import CreateModerationRequest, BaseResponse, ModerationResponse
 from config import database
 
 # ======== INITIALIZATIONS ========
