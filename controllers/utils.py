@@ -4,10 +4,9 @@ import jwt
 from functools import wraps
 from config import database, SECRET_KEY
 from response.BaseResponse import BaseResponse
-from utils.CustomFormatter import init_logging
 
-init_logging()
 logger = logging.getLogger(__name__)
+
 
 def token_required(f):
     @wraps(f)
