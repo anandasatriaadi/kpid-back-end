@@ -1,24 +1,23 @@
 import logging
 import math
 import os
-from dataclasses import asdict
-from datetime import timedelta, datetime
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
 from http import HTTPStatus
-from dataclasses import dataclass, field
-from bson.objectid import ObjectId
 
 import ffmpeg
+from bson.objectid import ObjectId
 from dacite import from_dict
 from flask import request
 from google.cloud import storage
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
+from app.api.common.utils import token_required
+from app.dto.request.moderation_request import CreateModerationRequest
+from app.dto.response.base_response import BaseResponse
+from app.dto.response.moderation_response import ModerationResponse
 from config import database
-from controllers.utils import token_required
-from request.user.ModerationRequest import CreateModerationRequest
-from response.BaseResponse import BaseResponse
-from response.form.FormResponse import FormResponse
 
 # ======== INITIALIZATIONS ========
 logger = logging.getLogger(__name__)

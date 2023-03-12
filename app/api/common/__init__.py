@@ -1,0 +1,1 @@
+from common.utils import token_required

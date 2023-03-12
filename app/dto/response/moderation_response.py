@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class FormResponse(object):
+class ModerationResponse(object):
     program_name: str
     station_name: str
     start_time: str

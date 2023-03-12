@@ -1,9 +1,11 @@
-from flask import request
 import logging
-import jwt
 from functools import wraps
-from config import database, SECRET_KEY
-from response.BaseResponse import BaseResponse
+
+import jwt
+from flask import request
+
+from app.dto.response.base_response import BaseResponse
+from config import SECRET_KEY, database
 
 logger = logging.getLogger(__name__)
 

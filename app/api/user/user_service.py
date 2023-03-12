@@ -5,15 +5,16 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 
 import jwt
-from config import SECRET_KEY, database
-from controllers.utils import token_required
 from dacite import from_dict
 from flask import request
-from request.user.UserRequest import CreateUserRequest, LoginUserRequest
-from response.BaseResponse import BaseResponse
-from response.PaginateResponse import PaginateResponse
-from response.user.UserResponse import UserResponse
 from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.api.common.utils import token_required
+from app.dto.request.user_request import CreateUserRequest, LoginUserRequest
+from app.dto.response.base_response import BaseResponse
+from app.dto.response.paginate_response import PaginateResponse
+from app.dto.response.user_response import UserResponse
+from config import SECRET_KEY, database
 
 logger = logging.getLogger(__name__)
 

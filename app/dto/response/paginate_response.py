@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from http import HTTPStatus
 
-from response.BaseResponse import BaseResponse
+from response.base_response import BaseResponse
 
 
 @dataclass

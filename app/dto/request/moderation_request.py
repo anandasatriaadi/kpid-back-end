@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+
 @dataclass
 class CreateModerationRequest(object):
     user_id: str

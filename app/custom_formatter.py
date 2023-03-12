@@ -36,7 +36,8 @@ class ColorizedArgsFormatter(logging.Formatter):
             _format = fmt
             for fld in ColorizedArgsFormatter.level_fields:
                 search = "(%\(" + fld + "\).*?s)"
-                _format = re.sub(search, f"{color}\\1{ColorCodes.reset}", _format)
+                _format = re.sub(
+                    search, f"{color}\\1{ColorCodes.reset}", _format)
             formatter = logging.Formatter(_format)
             self.level_to_formatter[level] = formatter
 
@@ -60,7 +61,8 @@ class ColorizedArgsFormatter(logging.Formatter):
         while True:
             if "_{{" not in msg:
                 break
-            color_index = placeholder_count % len(ColorizedArgsFormatter.arg_colors)
+            color_index = placeholder_count % len(
+                ColorizedArgsFormatter.arg_colors)
             color = ColorizedArgsFormatter.arg_colors[color_index]
             msg = msg.replace("_{{", color + "{", 1)
             msg = msg.replace("_}}", "}" + ColorCodes.reset, 1)
@@ -78,6 +80,7 @@ class ColorizedArgsFormatter(logging.Formatter):
         record.msg = orig_msg
         record.args = orig_args
         return formatted
+
 
 class BraceFormatStyleFormatter(logging.Formatter):
     def __init__(self, fmt: str):
@@ -122,6 +125,7 @@ class BraceFormatStyleFormatter(logging.Formatter):
         record.msg = orig_msg
         record.args = orig_args
         return formatted
+
 
 def init_logging():
     root_logger = logging.getLogger()
