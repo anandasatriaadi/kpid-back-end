@@ -1,0 +1,12 @@
+version: '1.0'
+
+services:
+  back-end:
+    build: ./
+    command: gunicorn --bind 0.0.0.0:5000 --access-logfile '-' app:app
+    volumes:
+      - ./:/usr/src/app/
+    ports:
+      - 80:5000
+    env_file:
+      - ./.env.dev

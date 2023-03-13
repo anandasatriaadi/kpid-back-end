@@ -1,0 +1,8 @@
+{
+  "indentRainbow.errorColor": "rgba(128,32,32,0.0)",
+  "indentRainbow.ignoreLinePatterns": [
+    "/[ \t]* [*]/g", // lines begining with <whitespace><space>*
+    "/[ \t]+[/]{2}/g" // lines begininning with <whitespace>//
+  ],
+  "editor.defaultFormatter": "ms-python.python"
+}
