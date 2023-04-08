@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 user_bp = Blueprint('user', __name__)
 
 
-# ======== GET : get all users ========
+# ======== get all users ========
 @user_bp.route('/users', methods=['GET'])
 @token_required
 def get_all_users(_):
@@ -28,7 +28,7 @@ def get_all_users(_):
     return get_user_by_params(params)
 
 
-# ======== GET : get user by token ========
+# ======== get user by token ========
 @user_bp.route('/user', methods=['GET'])
 @token_required
 def get_user(current_user):
@@ -38,7 +38,7 @@ def get_user(current_user):
     return response.get_response()
 
 
-# ======== POST : signup user ========
+# ======== signup user ========
 @user_bp.route('/signup', methods=['POST'])
 def signup():
     if request.mimetype == "application/json":
@@ -52,7 +52,7 @@ def signup():
     return signup_user(user_data)
 
 
-# ======== POST : login user ========
+# ======== login user ========
 @user_bp.route('/login', methods=['POST'])
 def login():
     if request.mimetype == "application/json":

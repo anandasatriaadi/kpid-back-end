@@ -3,10 +3,10 @@ version: '1.0'
 services:
   back-end:
     build: ./
-    command: gunicorn --bind 0.0.0.0:5000 --access-logfile '-' app:app
+    command: gunicorn --bind 0.0.0.0:5000 --timeout=0 --workers=2 --access-logfile '-' run:app
     volumes:
       - ./:/usr/src/app/
     ports:
-      - 80:5000
+      - 5000:5000
     env_file:
       - ./.env.dev

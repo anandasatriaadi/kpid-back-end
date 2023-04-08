@@ -4,13 +4,9 @@ from app.api import api_bp
 from config import SECRET_KEY
 from app.custom_formatter import init_logging
 
+init_logging()
 
-def create_app():
-    init_logging()
-
-    app = Flask(__name__)
-    app.config['SECRET_KEY'] = SECRET_KEY
-    app.register_blueprint(api_bp, url_prefix='/api')
-    CORS(app)
-
-    return app
+app = Flask(__name__)
+app.config['SECRET_KEY'] = SECRET_KEY
+app.register_blueprint(api_bp, url_prefix='/api')
+CORS(app)

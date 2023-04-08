@@ -1,26 +1,96 @@
+import logging
 import os
-from datetime import datetime, timedelta
+import threading
 from http import HTTPStatus
 
 from flask import Blueprint, request
 
 from app.api.common.utils import token_required
-from app.api.moderation.moderation_service import (create_moderation,
-                                                   cut_video, extract_frames,
-                                                   read_video_metadata)
-from app.dto import BaseResponse, CreateModerationRequest, UploadInfo
+from app.api.exceptions import ApplicationException
+from app.api.moderation.moderation_service import (cut_video, extract_frames,
+                                                   get_by_params,
+                                                   get_count_by_params,
+                                                   save_file)
+from app.dto import (BaseResponse, PaginateResponse,
+                     UploadInfo)
 from config import UPLOAD_PATH
 
+logger = logging.getLogger(__name__)
 moderation_bp = Blueprint('moderation', __name__)
 
 
-# ======== POST : UPLOAD MODERATION FORM ========
+# ======== get moderation by params ========
+@moderation_bp.route('/moderation', methods=['GET'])
+@token_required
+def get_moderation_by_params(_):
+    response = PaginateResponse()
+    try:
+        query_params = request.args.to_dict()
+        response = get_by_params(query_params)
+    except ApplicationException as err:
+        logger.error(str(err))
+        response.set_response(str(err), err.status)
+    return response.get_response()
+
+# ======== get moderation list of user ========
+
+
+@moderation_bp.route('/moderation-list', methods=['GET'])
+@token_required
+def get_moderation_list(current_user):
+    response = PaginateResponse()
+    try:
+        query_params = request.args.to_dict()
+        query_params["user_id"] = current_user["user_id"]
+        query_params["status.exists"] = "true"
+        response = get_by_params(query_params)
+    except ApplicationException as err:
+        logger.error(str(err))
+        response.set_response(str(err), err.status)
+    return response.get_response()
+
+
+# ======== get single moderation data ========
+@moderation_bp.route('/moderation/<moderation_id>', methods=['GET'])
+@token_required
+def get_moderation(current_user, moderation_id):
+    response = BaseResponse()
+    try:
+        query_params = request.args.to_dict()
+        query_params["id"] = moderation_id
+        query_params["user_id"] = current_user["user_id"]
+        result = get_by_params(query_params)
+        if len(result.data) == 0:
+            raise ApplicationException(
+                "No moderation found", HTTPStatus.NOT_FOUND)
+        response.set_response(result.data[0], HTTPStatus.OK)
+    except ApplicationException as err:
+        logger.error(str(err))
+        response.set_response(str(err), err.status)
+    return response.get_response()
+
+
+# ======== get moderation by params ========
+@moderation_bp.route('/moderation/count', methods=['GET'])
+@token_required
+def get_moderation_count_by_params(_):
+    response = PaginateResponse()
+    try:
+        query_params = request.args.to_dict()
+        count = get_count_by_params(query_params)
+        response.set_response(count, HTTPStatus.OK)
+    except ApplicationException as err:
+        logger.error(str(err))
+        response.set_response(str(err), err.status)
+    return response.get_response()
+
+
+# ======== upload moderation form ========
 @moderation_bp.route('/moderation-form', methods=['POST'])
 @token_required
 def upload_form(current_user):
     response = BaseResponse()
     file = request.files['video_file']
-    form_data = request.form
     upload_info = UploadInfo(
         user_id=str(current_user["user_id"]),
         filename=f"{file.filename.split('.')[0]}",
@@ -30,43 +100,12 @@ def upload_form(current_user):
             UPLOAD_PATH, f"{str(current_user['user_id'])}_{file.filename}"),
     )
 
-    # Save video to storage
-    file.save(upload_info.save_path)
+    upload_info, video_metadata = save_file(upload_info)
 
-    # Process uploaded video
-    all_metadata = read_video_metadata(upload_info.save_path)
-    video_metadata = [
-        data for data in all_metadata if data["codec_type"] == "video"]
+    threading.Thread(target=extract_frames, args=(
+        upload_info, video_metadata)).start()
+    threading.Thread(target=cut_video, args=(
+        upload_info, video_metadata)).start()
 
-    # Save moderation information to database
-    hour, min, sec = datetime.strptime(
-        form_data["start_time"], '%a %b %d %Y %H:%M:%S %Z%z').strftime('%H:%M:%S').split(':')
-    start_time = timedelta(
-        hours=int(hour), minutes=int(min), seconds=int(sec)
-    )
-    end_time = start_time + \
-        timedelta(seconds=float(video_metadata[0]["duration"]))
-
-    create_request = CreateModerationRequest(
-        user_id=upload_info.user_id,
-        filename=upload_info.file_with_ext,
-        program_name=form_data["program_name"],
-        station_name=form_data["station_name"],
-        start_time=str(start_time),
-        end_time=str(end_time),
-        fps=int(video_metadata[0]["r_frame_rate"].split("/")[0]),
-        duration=float(video_metadata[0]["duration"]),
-        total_frames=int(video_metadata[0]["nb_frames"])
-    )
-    object_id = create_moderation(create_request)
-    upload_info.saved_id = object_id
-
-    # Extract frames from video
-    if video_metadata is None:
-        raise Exception("Video metadata is None")
-    else:
-        extract_frames(upload_info, video_metadata)
-        cut_video(upload_info, video_metadata)
-
-    response.set_response("i", HTTPStatus.OK)
+    response.set_response(upload_info.saved_id, HTTPStatus.OK)
     return response.get_response()

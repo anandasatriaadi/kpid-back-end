@@ -1,17 +1,12 @@
 from dataclasses import dataclass
 
 from app.dto.response.base_response import BaseResponse
+from app.dto.model.metadata import Metadata
 
 
 @dataclass
 class PaginateResponse(BaseResponse):
-    page: int = None
-    limit: int = None
-    total_elements: int = None
-    total_pages: int = None
+    metadata: Metadata = None
 
     def set_metadata(self, page, limit, total_elements, total_pages):
-        self.page = page
-        self.limit = limit
-        self.total_elements = total_elements
-        self.total_pages = total_pages
+        self.metadata = Metadata(page, limit, total_elements, total_pages)

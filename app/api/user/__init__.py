@@ -1,1 +1,1 @@
-from app.api.user.user_controller import user_bp
+from .user_controller import user_bp
