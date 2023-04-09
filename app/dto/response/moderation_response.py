@@ -13,12 +13,12 @@ class ModerationResponse():
     filename: str
     program_name: str
     station_name: str
-    recording_date: datetime
     start_time: str
     end_time: str
     fps: int
     duration: float
     total_frames: int
+    recording_date: datetime = field(default=None)
     description: str = field(default=None)
     status: ModerationStatus = field(default=None)
     created_at: datetime = field(default=None)
