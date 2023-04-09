@@ -31,6 +31,8 @@ MODERATION_DB = database["moderation"]
 redis_conn = Queue(connection=conn)
 
 # ======== get moderation data by params ========
+
+
 def get_by_params(query_params: dict) -> PaginateResponse:
     response = PaginateResponse()
     moderation = database["moderation"]
@@ -222,7 +224,7 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
     form_data = request.form
 
     file.save(upload_info.save_path)
-    bucket_path = f"uploads/{upload_info.user_id}-{upload_info.file_with_ext}"
+    bucket_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
     upload_to_gcloud(bucket_path, upload_info.save_path)
 
     # Process uploaded video
@@ -298,8 +300,17 @@ def extract_frames(upload_info: UploadInfo, metadata):
 def cut_video(upload_info: UploadInfo, metadata):
     total_duration = float(metadata[0]["duration"])
     timestamp = total_duration/3
+
+    # check if the file exists in the local directory
+    if not os.path.exists(upload_info.save_path):
+        # if the file does not exist, download it from GCP bucket
+        blob_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
+        bucket = STORAGE_CLIENT.bucket("kpid-jatim")
+        blob = bucket.blob(blob_path)
+        blob.download_to_filename(upload_info.save_path)
+
+    save_path = os.path.join(UPLOAD_PATH, upload_info.filename)
     for i in range(1, 4):
-        save_path = os.path.join(UPLOAD_PATH, upload_info.filename)
         start_time = max(0, int((timestamp*i) - 2))
         end_time = min(total_duration, int((timestamp*i) + 2))
         ffmpeg_extract_subclip(
