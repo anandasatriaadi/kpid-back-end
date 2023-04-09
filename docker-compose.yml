@@ -2,7 +2,9 @@ version: '1.0'
 
 services:
   back-end:
+    container_name: kpid-back-end
     build: ./
+    image: kpid-back-end
     command: gunicorn --bind 0.0.0.0:5000 --timeout=0 --workers=2 --access-logfile '-' run:app
     volumes:
       - ./:/usr/src/app/
@@ -10,3 +12,33 @@ services:
       - 5000:5000
     env_file:
       - ./.env.dev
+    depends_on:
+      - redis
+
+  redis-worker:
+    container_name: kpid-redis-worker
+    build: ./
+    image: kpid-back-end
+    command: python redis_worker.py
+    volumes:
+      - ./:/usr/src/app/
+    env_file:
+      - ./.env.dev      
+    links:
+      - redis
+    depends_on:
+      - redis
+
+  redis:
+    container_name: kpid-redis
+    image: redis:7.0.10-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass
+    volumes: 
+      - redis:/data
+
+volumes:
+  redis:
+    driver: local

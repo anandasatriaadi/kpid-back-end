@@ -1,8 +1,9 @@
 from flask import Flask
 from flask_cors import CORS
+
 from app.api import api_bp
-from config import SECRET_KEY
 from app.custom_formatter import init_logging
+from config import SECRET_KEY
 
 init_logging()
 

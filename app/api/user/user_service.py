@@ -29,12 +29,12 @@ def get_user_by_params(query_params: dict) -> PaginateResponse:
         params, pagination = clean_query_params(query_params)
         query, sort = parse_query_params(params)
 
-        for user in users.find(query).sort(params["sort_field"], 1 if params["sort_order"] == "ASC" else -1).skip(params["limit"] * params["page"]).limit(params["limit"]):
+        for user in users.find(query).sort(sort["field"], sort["direction"]).skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"]):
             res = from_dict(data_class=UserResponse, data=user)
             output.append(res.__dict__)
 
-        response.set_metadata(params["page"], params["limit"], total_elements, math.ceil(
-            total_elements/params["limit"]))
+        response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(
+            total_elements/pagination["limit"]))
         response.set_response(output, HTTPStatus.OK)
     except Exception as err:
         logger.error(err)

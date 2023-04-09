@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from app.dto import ModerationStatus
 
 from bson import ObjectId
+
+from app.dto import ModerationStatus
 
 
 @dataclass
@@ -12,6 +13,7 @@ class ModerationResponse():
     filename: str
     program_name: str
     station_name: str
+    recording_date: datetime
     start_time: str
     end_time: str
     fps: int

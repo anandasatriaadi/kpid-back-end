@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from functools import wraps
 from http import HTTPStatus
 from typing import Dict, Tuple
@@ -6,8 +7,8 @@ from typing import Dict, Tuple
 import jwt
 from bson.objectid import ObjectId
 from flask import request
-from datetime import datetime
 from pymongo import ASCENDING, DESCENDING
+from pytz import timezone
 
 from app.api.exceptions import ApplicationException
 from app.dto import BaseResponse
@@ -109,7 +110,8 @@ def parse_query_params(query_params: Dict[str, str]) -> Tuple[Dict[str, any], Di
             supported_operators[operator](criteria, field, value)
         elif key == 'sort':
             field, order = value.split(',')
-            sorting[field] = ASCENDING if order == 'ASC' else DESCENDING
+            sorting["field"] = field
+            sorting["direction"] = ASCENDING if order == 'ASC' else DESCENDING
         else:
             handle_default_operator(criteria, field, value)
 
@@ -126,7 +128,8 @@ def handle_nin_operator(criteria: Dict[str, any], field: str, value: str):
 
 def handle_gt_operator(criteria: Dict[str, any], field: str, value: str):
     try:
-        value = datetime.strptime(value, '%Y-%m-%d')
+        value = datetime.strptime(
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
     except ValueError:
         pass
     criteria[field] = {'$gt': value}
@@ -134,7 +137,8 @@ def handle_gt_operator(criteria: Dict[str, any], field: str, value: str):
 
 def handle_gte_operator(criteria: Dict[str, any], field: str, value: str):
     try:
-        value = datetime.strptime(value, '%Y-%m-%d')
+        value = datetime.strptime(
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
     except ValueError:
         pass
     criteria[field] = {'$gte': value}
@@ -142,7 +146,8 @@ def handle_gte_operator(criteria: Dict[str, any], field: str, value: str):
 
 def handle_lt_operator(criteria: Dict[str, any], field: str, value: str):
     try:
-        value = datetime.strptime(value, '%Y-%m-%d')
+        value = datetime.strptime(
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
     except ValueError:
         pass
     criteria[field] = {'$lt': value}
@@ -150,7 +155,8 @@ def handle_lt_operator(criteria: Dict[str, any], field: str, value: str):
 
 def handle_lte_operator(criteria: Dict[str, any], field: str, value: str):
     try:
-        value = datetime.strptime(value, '%Y-%m-%d')
+        value = datetime.strptime(
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
     except ValueError:
         pass
     criteria[field] = {'$lte': value}
