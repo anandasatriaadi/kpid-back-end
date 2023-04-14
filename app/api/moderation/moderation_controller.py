@@ -24,57 +24,69 @@ moderation_bp = Blueprint('moderation', __name__)
 redis_conn = Queue(connection=conn)
 
 
-# ======== get moderation by params ========
+# ======== get moderations by parameters ========
 @moderation_bp.route('/moderation', methods=['GET'])
 @token_required
 def get_moderation_by_params(_):
     response = PaginateResponse()
     try:
+        # Get the query parameters from the request as a dictionary
         query_params = request.args.to_dict()
+        # Call the get_by_params function with the query parameters to get the result
         response = get_by_params(query_params)
     except ApplicationException as err:
         logger.error(str(err))
+        # If an ApplicationException is raised, set the response to indicate the error
         response.set_response(str(err), err.status)
     return response.get_response()
 
 
-# ======== get moderation list of user ========
+# ======== get list of moderations for the current user ========
 @moderation_bp.route('/moderation-list', methods=['GET'])
 @token_required
 def get_moderation_list(current_user):
     response = PaginateResponse()
     try:
+        # Get the query parameters from the request as a dictionary and set the user_id and status.exists parameters
         query_params = request.args.to_dict()
         query_params["user_id"] = current_user["user_id"]
         query_params["status.exists"] = "true"
+        
+        # Get the results
         response = get_by_params(query_params)
     except ApplicationException as err:
         logger.error(str(err))
+        # If an ApplicationException is raised, set the response to indicate the error
         response.set_response(str(err), err.status)
     return response.get_response()
 
 
-# ======== get single moderation data ========
+# ======== get moderation by ID ========
 @moderation_bp.route('/moderation/<moderation_id>', methods=['GET'])
 @token_required
 def get_moderation(current_user, moderation_id):
     response = BaseResponse()
     try:
+        # Get the query parameters from the request as a dictionary and set the id and user_id parameters
         query_params = request.args.to_dict()
         query_params["id"] = moderation_id
         query_params["user_id"] = current_user["user_id"]
+
+        # Get results. If no moderations were found, raise an ApplicationException with a 404 status
         result = get_by_params(query_params)
         if len(result.data) == 0:
             raise ApplicationException(
                 "No moderation found", HTTPStatus.NOT_FOUND)
+
         response.set_response(result.data[0], HTTPStatus.OK)
     except ApplicationException as err:
         logger.error(str(err))
+        # If an ApplicationException is raised, set the response to indicate the error
         response.set_response(str(err), err.status)
     return response.get_response()
 
 
-# ======== get moderation by params ========
+# ======== get count of moderations by parameters ========
 @moderation_bp.route('/moderation/count', methods=['GET'])
 @token_required
 def get_moderation_count_by_params(_):
@@ -89,7 +101,7 @@ def get_moderation_count_by_params(_):
     return response.get_response()
 
 
-# ======== upload moderation form ========
+# ======== handle moderation form submission ========
 @moderation_bp.route('/moderation-form', methods=['POST'])
 @token_required
 def upload_form(current_user):
@@ -97,6 +109,7 @@ def upload_form(current_user):
     file = request.files['video_file']
     form_data = request.form
 
+    # Create an UploadInfo object with the user ID, filename, file extension, save path, and file with extension
     upload_info = UploadInfo(
         user_id=str(current_user["user_id"]),
         filename=f"{file.filename.split('.')[0]}",
@@ -106,27 +119,29 @@ def upload_form(current_user):
             UPLOAD_PATH, f"{str(current_user['user_id'])}_{file.filename}"),
     )
 
+    # Call the save_file function to save the uploaded file and get the updated UploadInfo object and video metadata
     upload_info, video_metadata = save_file(upload_info)
 
-    # extract frames from video
+    # Enqueue a job to extract frames from the uploaded video
     job = redis_conn.enqueue_call(
         func=extract_frames, args=(upload_info, video_metadata))
     logger.info("Job %s started || Extracting Frames %s",
                 job.id, upload_info.saved_id)
 
-    # analyze video using models
+    # If the 'process_now' form data is set to 'true', enqueue a job to analyze the video using models
     if form_data["process_now"] == 'true':
         job = redis_conn.enqueue_call(
             func=cut_video, args=(upload_info, video_metadata))
         logger.info("Job %s started || Cutting Video %s",
                     job.id, upload_info.saved_id)
 
+    # Set the response to indicate that the form was successfully uploaded
     response.set_response(upload_info.saved_id, HTTPStatus.OK)
-    # response.set_response("Saved", HTTPStatus.OK)
+
     return response.get_response()
 
 
-# ======== start moderation ========
+# ======== handle start moderation ========
 @moderation_bp.route('/moderation/start', methods=['PUT'])
 @token_required
 def initiate_moderation(_):
@@ -134,54 +149,76 @@ def initiate_moderation(_):
     moderation_id = request.form["id"]
 
     try:
+        # Initiate the moderation with the provided ID
         start_moderation(moderation_id)
+
+        # Set the response data to indicate that the moderation has been started
         response.set_response("Moderation Started.", HTTPStatus.OK)
+
     except ApplicationException as err:
+        # Log any application exceptions and set the response data to be the exception message and status
         logger.error(str(err))
         response.set_response(str(err), err.status)
+
     return response.get_response()
 
 
-# ======== moderation statistics ========
+# ======== get moderation statistics ========
 @moderation_bp.route('/moderation/statistics', methods=['GET'])
 @token_required
 def moderation_statistic(_):
     response = BaseResponse()
 
     try:
+        # Get the query parameters from the request
         query_params = request.args.to_dict()
 
+        # If no start date is provided, set it to 30 days ago
         if query_params.get("start_date") is None or query_params.get("start_date") == "":
             query_params["start_date"] = datetime.now().astimezone(
                 timezone("Asia/Jakarta")) + timedelta(days=-30)
         else:
+            # Otherwise, parse the provided start date string into a datetime object
             query_params["start_date"] = datetime.strptime(
                 query_params["start_date"], '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
 
+        # If no end date is provided, set it to the current date and time
         if query_params.get("end_date") is None or query_params.get("end_date") == "":
             query_params["end_date"] = datetime.now(
             ).astimezone(timezone("Asia/Jakarta"))
         else:
+            # Otherwise, parse the provided end date string into a datetime object
             query_params["end_date"] = datetime.strptime(
                 query_params["end_date"], '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
 
+        # Get the monthly statistics for the provided date range
         all_result, detected_result = get_monthly_statistics(
             query_params["start_date"], query_params["end_date"])
+
+        # Set the response data to be the monthly statistics
         response.set_response(
             {"all": all_result, "detected": detected_result}, HTTPStatus.OK)
+
     except ApplicationException as err:
+        # Log any application exceptions and set the response data to be the exception message and status
         logger.error(str(err))
         response.set_response(str(err), err.status)
+
+    # Return the response data
     return response.get_response()
 
 
-# ======== moderation statistics ========
+# ======== generate a PDF report for a moderation ========
 @moderation_bp.route('/moderation/report/<moderation_id>', methods=['GET'])
-# @token_required
+@token_required
 def generate_report(moderation_id):
+    # Call the generate_pdf_report function with the provided moderation ID to generate the PDF report
     pdf = generate_pdf_report(moderation_id)
 
+    # Create a response object containing the generated PDF
     response = make_response(pdf)
+
+    # Set the headers for the response to indicate that it is a PDF file and provide a filename
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = 'inline; filename=output.pdf'
     return response

@@ -1,5 +1,3 @@
-from fileinput import filename
-import locale
 import logging
 import math
 import os
@@ -11,61 +9,73 @@ from typing import Tuple
 import ffmpeg
 import pdfkit
 import pytz
+from babel.dates import format_datetime
 from bson.objectid import ObjectId
 from flask import request
-from rq import Queue
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.video.io.VideoFileClip import VideoFileClip
-from babel.dates import format_datetime
+from rq import Queue
 
-from redis_worker import conn
 from app.api.common.utils import clean_query_params, parse_query_params
 from app.api.exceptions import ApplicationException
 from app.dto import (CreateModerationRequest, ModerationResponse,
                      ModerationStatus, PaginateResponse, UploadInfo)
 from config import STORAGE_CLIENT, UPLOAD_PATH, database
+from redis_worker import conn
 
 # ======== INITIALIZATIONS ========
 logger = logging.getLogger(__name__)
 MODERATION_DB = database["moderation"]
 redis_conn = Queue(connection=conn)
 
-# ======== get moderation data by params ========
 
-
+# ======== returns a PaginateResponse containing a list of ModerationResponses based on the provided query parameters ========
 def get_by_params(query_params: dict) -> PaginateResponse:
     response = PaginateResponse()
     moderation = database["moderation"]
 
+    # Clean the query parameters to remove any invalid or unnecessary values
     params, pagination = clean_query_params(query_params)
+
+    # Parse the cleaned query parameters into a MongoDB query and sort fields
     query, sort = parse_query_params(params)
-    logger.info(query)
-    logger.info(sort)
 
     output = []
+
+    # Get the total number of elements matching the query
     total_elements = moderation.count_documents(query)
 
     results = None
+
+    # If there are sort fields, sort the results based on the specified field and direction
     if len(sort) > 0:
         if len(pagination) > 0:
+            # If there are pagination parameters, limit the number of results returned based on the provided page and limit
             results = moderation.find(query).sort(sort["field"], sort["direction"]).skip(
                 pagination["limit"] * pagination["page"]).limit(pagination["limit"])
         else:
+            # If there are no pagination parameters, return all results sorted based on the specified field and direction
             results = moderation.find(query).sort(
                 sort["field"], sort["direction"])
     else:
         if len(pagination) > 0:
+            # If there are pagination parameters, limit the number of results returned based on the provided page and limit
             results = moderation.find(query).skip(
                 pagination["limit"] * pagination["page"]).limit(pagination["limit"])
         else:
+            # If there are no pagination parameters, return all results
             results = moderation.find(query)
 
+    # Convert the MongoDB results into ModerationResponse objects and add them to the output list
     for result in results:
         output.append(ModerationResponse.from_document(result))
 
+    # Set the metadata for the response if there are pagination parameters
     if len(pagination) > 0:
         response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(
             total_elements/pagination["limit"]))
+
+    # Set the response data to the output list with a 200 status code
     response.set_response(output, HTTPStatus.OK)
 
     return response
@@ -91,7 +101,7 @@ def read_video_metadata(file_path):
         return None
 
 
-# ======== Create New Object In DB ========
+# ======== create new moderation in DB ========
 def create_moderation(moderation_request: CreateModerationRequest):
     try:
         res = MODERATION_DB.insert_one(moderation_request.as_dict())
@@ -104,17 +114,23 @@ def create_moderation(moderation_request: CreateModerationRequest):
         return None
 
 
-# ======== Start Moderation if Status Uploaded ========
+# ======== start the moderation process for the provided moderation ID ========
 def start_moderation(object_id: str):
+    # Retrieve the ModerationResponse object for the provided ID from the MongoDB database
     moderation = ModerationResponse.from_document(
         MODERATION_DB.find_one({"_id": ObjectId(object_id)}))
+
+    # If the moderation cannot be found, raise a 404 exception
     if moderation is None:
         raise ApplicationException(
             "Moderation not found", HTTPStatus.NOT_FOUND)
+
+    # If the moderation is not in the required status, raise a 400 exception
     if moderation.status != str(ModerationStatus.UPLOADED):
         raise ApplicationException(
             "Moderation is not in required status", HTTPStatus.BAD_REQUEST)
 
+    # Create an UploadInfo object for the moderation's file
     upload_info = UploadInfo(
         user_id=str(moderation.user_id),
         filename=moderation.filename.split('.')[0],
@@ -123,15 +139,22 @@ def start_moderation(object_id: str):
         save_path=os.path.join(
             UPLOAD_PATH, f"{moderation.user_id}_{moderation.filename}"),
     )
+
+    # Set the saved ID of the UploadInfo object to the ID of the moderation in the database
     upload_info.saved_id = str(moderation._id)
 
+    # Create a video metadata list with the duration of the moderation
     video_metadata = [{"duration": moderation.duration}]
 
+    # Enqueue a job to cut the video using the provided UploadInfo and video metadata
     job = redis_conn.enqueue_call(
         func=cut_video, args=(upload_info, video_metadata))
+
+    # Log the ID of the job and the saved ID of the UploadInfo object for debugging purposes
     logger.info("Job %s started || Cutting Video %s",
                 job.id, upload_info.saved_id)
 
+    # Update the status of the moderation in the database to IN_PROGRESS
     MODERATION_DB.update_one({"_id": ObjectId(object_id)}, {
         "$set": {"status": str(ModerationStatus.IN_PROGRESS)}})
 
@@ -140,6 +163,7 @@ def start_moderation(object_id: str):
 
 # ======== monthly statistics ========
 def get_monthly_statistics(start_date: str, end_date: str) -> Tuple[dict, dict]:
+    # Define a MongoDB query pipeline to group all moderations by date and count the number of moderations on each date
     all_moderation_query = [
         {"$match": {
             "$and": [
@@ -155,6 +179,7 @@ def get_monthly_statistics(start_date: str, end_date: str) -> Tuple[dict, dict]:
         }}
     ]
 
+    # Define a MongoDB query pipeline to group detected moderations by date and count the number of detected moderations on each date
     detected_moderation_query = [
         {"$match": {
             "$and": [
@@ -171,32 +196,37 @@ def get_monthly_statistics(start_date: str, end_date: str) -> Tuple[dict, dict]:
         }}
     ]
 
+    # Execute the all moderation query pipeline and store the results in a list
     all_results = MODERATION_DB.aggregate(all_moderation_query)
-    detected_results = MODERATION_DB.aggregate(detected_moderation_query)
-
     parse_all_results = []
-    parse_detected_results = []
-
     for result in all_results:
         parse_all_results.append(result)
 
+    # Execute the detected moderation query pipeline and store the results in a list
+    detected_results = MODERATION_DB.aggregate(detected_moderation_query)
+    parse_detected_results = []
     for result in detected_results:
         parse_detected_results.append(result)
 
+    # Return a tuple containing the parsed results for all moderations and detected moderations
     return parse_all_results, parse_detected_results
 
 
-# ======== generate report ========
+# ======== generate a PDF report for the moderation with the provided moderation ID ========
 def generate_pdf_report(moderation_id):
+    # Retrieve the ModerationResponse object for the provided ID from the MongoDB database
     result = MODERATION_DB.find_one({"_id": ObjectId(moderation_id)})
     moderation = ModerationResponse.from_document(result)
 
+    # Get the HTML template for the PDF report from a Google Cloud Storage bucket
     bucket = STORAGE_CLIENT.bucket("kpid-jatim")
     html_blob = bucket.blob("template/template_surat_2.html")
     html = html_blob.download_as_text()
 
+    # Generate HTML tags for the moderation's result data
     html_results = generate_html_tags(moderation.result)
 
+    # Replace placeholders in the HTML template with data from the moderation
     html = html.replace("{{current_date}}", format_datetime(datetime.now(
         pytz.timezone("Asia/Jakarta")), "d MMMM YYYY", locale="id_ID"))
     html = html.replace("{{record_date}}", format_datetime(
@@ -207,6 +237,7 @@ def generate_pdf_report(moderation_id):
     html = html.replace("{{results}}",
                         html_results)
 
+    # Generate a PDF file from the HTML template using pdfkit
     pdf = pdfkit.from_string(html, False)
 
     return pdf
@@ -217,28 +248,29 @@ def generate_pdf_report(moderation_id):
 # ========================================================================
 
 
-# ======== save file into local and data into db and return video metadata ========
+# ======== save the uploaded file to storage, extract metadata, and save moderation information to the database ========
 def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
-    # Save video to storage
+    # Get the video file from the request and the form data containing metadata about the video
     file = request.files['video_file']
     form_data = request.form
 
+    # Save the video file to the local filesystem and upload it to Google Cloud Storage
     file.save(upload_info.save_path)
     bucket_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
     upload_to_gcloud(bucket_path, upload_info.save_path)
 
-    # Process uploaded video
+    # Read metadata from the uploaded video
     all_metadata = read_video_metadata(upload_info.save_path)
     video_metadata = [
         data for data in all_metadata if data["codec_type"] == "video"]
 
-    # Extract frames from video
+    # If the video metadata is None, raise a 400 exception
     if video_metadata is None:
         raise ApplicationException(
             "Video metadata is None", HTTPStatus.BAD_REQUEST
         )
 
-    # Save moderation information to database
+    # Parse the recording date and start and end times from the form data
     recording_date = datetime.strptime(
         form_data["recording_date"], '%a %b %d %Y %H:%M:%S %Z%z')
     hour, minute, second = recording_date.strftime('%H:%M:%S').split(':')
@@ -250,6 +282,7 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
 
     frame, divider = video_metadata[0]["r_frame_rate"].split("/")
 
+    # Create a CreateModerationRequest object with the parsed metadata
     create_request = CreateModerationRequest(
         user_id=upload_info.user_id,
         filename=upload_info.file_with_ext,
@@ -263,21 +296,27 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
         duration=round(float(video_metadata[0]["duration"]), 2),
         total_frames=int(video_metadata[0]["nb_frames"])
     )
+
+    # Create a moderation in the database using the CreateModerationRequest object and get the ID of the new moderation
     object_id = create_moderation(create_request)
     upload_info.saved_id = object_id
 
+    # Return a tuple containing the modified UploadInfo object and the video metadata
     return upload_info, video_metadata
 
 
-# ======== extract frames and upload ========
+# ======== extract frames from the uploaded video and upload them to Google Cloud Storage ========
 def extract_frames(upload_info: UploadInfo, metadata):
+    # Create a VideoFileClip object from the uploaded video file
     clip = VideoFileClip(upload_info.save_path)
 
+    # Extract frames from the video and save them to the local filesystem
     for i in range(0, math.floor(float(metadata[0]["duration"]))):
         save_path = f'{UPLOAD_PATH}/{upload_info.filename}_f{i}.jpg'
         logger.info("Saving frame %s to %s", i, save_path)
         clip.save_frame(save_path, i)
 
+    # Upload the saved frames to Google Cloud Storage and update the moderation in the database to reference the uploaded frames
     temp_frames = []
     frames_to_delete = []
     for i in range(0, math.floor(float(metadata[0]["duration"]))):
@@ -287,9 +326,11 @@ def extract_frames(upload_info: UploadInfo, metadata):
         temp_frames.append(bucket_path)
         upload_to_gcloud(bucket_path, save_path)
 
+    # Delete the saved frames from the local filesystem
     for frame in frames_to_delete:
         os.remove(frame)
 
+    # Update the moderation in the database to reference the uploaded frames and set its status to UPLOADED
     MODERATION_DB.update_one({"_id": ObjectId(upload_info.saved_id)}, {"$set": {
                              "frames": temp_frames, "status": str(ModerationStatus.UPLOADED)}})
 
@@ -355,17 +396,21 @@ def upload_to_gcloud(destination, source):
         logger.error(err)
 
 
-# ======== generate html tags from result ========
+# ======== generate HTML tags to display the moderation result in a PDF report ========
 def generate_html_tags(result):
     html_tags = ""
     for idx, val in enumerate(result):
+        # If the decision is not "valid", skip this result
         if val["decision"] != "valid":
             continue
+
+        # Create a comma-separated string of categories
         categories = ""
         for category in val["category"]:
             category = str(category).replace("_", " ")
             categories += f'{category}' if categories == "" else f', {category}'
 
+        # Add an <li> element containing a link to the video and the detected categories to the HTML string
         html_tags += f'''
         <li>
             <a href="https://kpid-jatim.storage.googleapis.com/{val["clip_url"]}">Video {idx+1}</a>
