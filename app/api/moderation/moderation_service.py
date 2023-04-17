@@ -18,8 +18,9 @@ from rq import Queue
 
 from app.api.common.utils import clean_query_params, parse_query_params
 from app.api.exceptions import ApplicationException
-from app.dto import (CreateModerationRequest, ModerationResponse,
-                     ModerationStatus, PaginateResponse, UploadInfo)
+from app.dto import (CreateModerationRequest, ModerationDecision,
+                     ModerationResponse, ModerationStatus, PaginateResponse,
+                     UploadInfo)
 from config import STORAGE_CLIENT, UPLOAD_PATH, database
 from redis_worker import conn
 
@@ -39,6 +40,7 @@ def get_by_params(query_params: dict) -> PaginateResponse:
 
     # Parse the cleaned query parameters into a MongoDB query and sort fields
     query, sort = parse_query_params(params)
+    logger.error(query)
 
     output = []
 
@@ -243,6 +245,23 @@ def generate_pdf_report(moderation_id):
     return pdf
 
 
+# ======== generate HTML tags for the moderation's result data ========
+def validate_moderation(moderation_id, result_index, decision):
+    # Retrieve the ModerationResponse object for the provided ID from the MongoDB database
+    result = MODERATION_DB.find_one({"_id": ObjectId(moderation_id)})
+    moderation = ModerationResponse.from_document(result)
+    moderation_result = moderation.result
+    logger.error(moderation_result[int(result_index)]['decision'])
+    moderation_result[int(result_index)]['decision'] = str(
+        ModerationDecision.VALID if decision == "VALID" else ModerationDecision.INVALID)
+
+    # Update the status of the moderation in the database to the provided decision
+    MODERATION_DB.update_one({"_id": ObjectId(moderation_id)}, {
+        "$set": {"result": moderation_result}})
+
+    return True
+
+
 # ========================================================================
 #   utility methods
 # ========================================================================
@@ -371,7 +390,7 @@ def cut_video(upload_info: UploadInfo, metadata):
         temp_videos.append({
             "second": timestamp*i,
             "clip_url": bucket_path,
-            "decision": "pending",
+            "decision": str(ModerationDecision.PENDING),
             "category": category
         })
         upload_to_gcloud(bucket_path, save_path)
@@ -399,9 +418,10 @@ def upload_to_gcloud(destination, source):
 # ======== generate HTML tags to display the moderation result in a PDF report ========
 def generate_html_tags(result):
     html_tags = ""
-    for idx, val in enumerate(result):
+    count = 1
+    for _, val in enumerate(result):
         # If the decision is not "valid", skip this result
-        if val["decision"] != "valid":
+        if str(val["decision"]).upper() != "VALID":
             continue
 
         # Create a comma-separated string of categories
@@ -413,9 +433,10 @@ def generate_html_tags(result):
         # Add an <li> element containing a link to the video and the detected categories to the HTML string
         html_tags += f'''
         <li>
-            <a href="https://kpid-jatim.storage.googleapis.com/{val["clip_url"]}">Video {idx+1}</a>
+            <a href="https://kpid-jatim.storage.googleapis.com/{val["clip_url"]}">Video {count}</a>
             <br/>
             Terdeteksi mengandung unsur melanggar {categories}
         </li>
         '''
+        count += 1
     return html_tags

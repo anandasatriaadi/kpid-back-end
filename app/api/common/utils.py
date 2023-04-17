@@ -149,6 +149,10 @@ def parse_query_params(query_params: Dict[str, str]) -> Tuple[Dict[str, any], Di
                 f'Unsupported operator: {operator}', HTTPStatus.BAD_REQUEST)
 
         if operator in supported_operators:
+            # Use a list to store values for the same field
+            field = '_id' if field == 'id' else field
+            if field not in criteria:
+                criteria[field] = []
             supported_operators[operator](criteria, field, value)
         # If the key is "sort", setting the sorting parameters
         elif key == 'sort':
@@ -157,62 +161,75 @@ def parse_query_params(query_params: Dict[str, str]) -> Tuple[Dict[str, any], Di
             sorting["direction"] = ASCENDING if order == 'ASC' else DESCENDING
         # If the key is not "sort", using the default equality operator
         else:
+            # Use a list to store values for the same field
+            field = '_id' if field == 'id' else field
+            if field not in criteria:
+                criteria[field] = []
             __handle_default_operator(criteria, field, value)
 
+    # Combine values for the same field using appropriate operator
+    temp = []
+    for field, values in criteria.items():
+        for value in values:
+            logger.error(value)
+            temp.append({field: value})
+
+    criteria = {'$and': temp}
     # Returning a tuple containing the criteria dictionary and the sorting dictionary
     return criteria, sorting
 
 
 def __handle_in_operator(criteria: Dict[str, any], field: str, value: str):
-    criteria[field] = {'$in': value.split(',')}
+    criteria[field].append({'$in': value.split(',')})
 
 
 def __handle_nin_operator(criteria: Dict[str, any], field: str, value: str):
-    criteria[field] = {'$nin': value.split(',')}
+    criteria[field].append({'$nin': value.split(',')})
 
 
 def __handle_gt_operator(criteria: Dict[str, any], field: str, value: str):
     try:
         value = datetime.strptime(
-            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta")).replace(hour=0, minute=0, second=0)
     except ValueError:
         pass
-    criteria[field] = {'$gt': value}
+    criteria[field].append({'$gt': value})
 
 
 def __handle_gte_operator(criteria: Dict[str, any], field: str, value: str):
     try:
         value = datetime.strptime(
-            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta")).replace(hour=0, minute=0, second=0)
     except ValueError:
         pass
-    criteria[field] = {'$gte': value}
+    criteria[field].append({'$gte': value})
 
 
 def __handle_lt_operator(criteria: Dict[str, any], field: str, value: str):
     try:
         value = datetime.strptime(
-            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta")).replace(hour=23, minute=59, second=59)
     except ValueError:
         pass
-    criteria[field] = {'$lt': value}
+    criteria[field].append({'$lt': value})
 
 
 def __handle_lte_operator(criteria: Dict[str, any], field: str, value: str):
     try:
         value = datetime.strptime(
-            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
+            value, '%Y-%m-%d').astimezone(timezone("Asia/Jakarta")).replace(hour=23, minute=59, second=59)
     except ValueError:
         pass
-    criteria[field] = {'$lte': value}
+    criteria[field].append({'$lte': value})
 
 
 def __handle_exists_operator(criteria: Dict[str, any], field: str, value: str):
-    criteria[field] = {'$exists': value.lower() == 'true'}
+    criteria[field].append({'$exists': value.lower() == 'true'})
 
 
 def __handle_default_operator(criteria: Dict[str, any], field: str, value: str):
-    if field == 'id':
-        field = '_id'
+    if field == '_id':
         value = ObjectId(value)
-    criteria[field] = value
+        criteria[field].append(value)
+    else:
+        criteria[field].append({'$eq': value})

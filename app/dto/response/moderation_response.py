@@ -1,10 +1,18 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import List
 
 from bson import ObjectId
 
-from app.dto import ModerationStatus
+from app.dto import ModerationDecision, ModerationStatus
 
+
+@dataclass
+class ModerationResult():
+    second: float
+    clip_url: str
+    decision: ModerationDecision
+    category: List[str]
 
 @dataclass
 class ModerationResponse():
@@ -23,7 +31,7 @@ class ModerationResponse():
     status: ModerationStatus = field(default=None)
     created_at: datetime = field(default=None)
     updated_at: datetime = field(default=None)
-    result: list = field(default=None)
+    result: List[ModerationResult] = field(default=None)
     frames: list = field(default=None)
     videos: list = field(default=None)
 

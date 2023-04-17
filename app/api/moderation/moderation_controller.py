@@ -14,7 +14,8 @@ from app.api.moderation.moderation_service import (cut_video, extract_frames,
                                                    get_by_params,
                                                    get_count_by_params,
                                                    get_monthly_statistics,
-                                                   save_file, start_moderation)
+                                                   save_file, start_moderation,
+                                                   validate_moderation)
 from app.dto import BaseResponse, PaginateResponse, UploadInfo
 from config import UPLOAD_PATH
 from redis_worker import conn
@@ -50,7 +51,6 @@ def get_moderation_list(current_user):
         # Get the query parameters from the request as a dictionary and set the user_id and status.exists parameters
         query_params = request.args.to_dict()
         query_params["user_id"] = current_user["user_id"]
-        query_params["status.exists"] = "true"
         
         # Get the results
         response = get_by_params(query_params)
@@ -211,7 +211,7 @@ def moderation_statistic(_):
 # ======== generate a PDF report for a moderation ========
 @moderation_bp.route('/moderation/report/<moderation_id>', methods=['GET'])
 @token_required
-def generate_report(moderation_id):
+def generate_report(_, moderation_id):
     # Call the generate_pdf_report function with the provided moderation ID to generate the PDF report
     pdf = generate_pdf_report(moderation_id)
 
@@ -222,3 +222,25 @@ def generate_report(moderation_id):
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = 'inline; filename=output.pdf'
     return response
+
+
+# ======== validate moderation results ========
+@moderation_bp.route('/moderation/validate', methods=['PUT'])
+@token_required
+def validate_result(_):
+    response = BaseResponse()
+    moderation_id = request.form["id"]
+    result_index = request.form["index"]
+    decision = request.form["decision"]
+
+    try:
+        # Validate the moderation results with the provided ID and decision
+        validate_moderation(moderation_id, result_index, decision)
+
+        # Set the response data to indicate that the moderation results have been validated
+        response.set_response("Moderation Validated.", HTTPStatus.OK)
+    except ApplicationException as err:
+        logger.error(str(err))
+        response.set_response(str(err), err.status)
+
+    return response.get_response()
