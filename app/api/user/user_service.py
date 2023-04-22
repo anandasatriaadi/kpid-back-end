@@ -14,7 +14,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.api.common.utils import clean_query_params, parse_query_params
 from app.dto import (BaseResponse, CreateUserRequest, PaginateResponse,
                      UserResponse)
-from config import SECRET_KEY, database
+from config import SECRET_KEY, DATABASE
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
     """
 
     response = PaginateResponse()
-    users = database["users"]
+    users = DATABASE["users"]
 
     try:
         output = []
@@ -78,7 +78,7 @@ def signup_user(create_request: CreateUserRequest) -> Dict[str, Union[str, int]]
     """
 
     response = BaseResponse()
-    users = database["users"]
+    users = DATABASE["users"]
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
     try:
@@ -126,7 +126,7 @@ def login_user(create_request: CreateUserRequest) -> Dict[str, Union[Dict[str, U
     """
 
     response = BaseResponse()
-    users = database["users"]
+    users = DATABASE["users"]
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
     try:

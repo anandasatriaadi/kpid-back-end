@@ -12,7 +12,7 @@ from pytz import timezone
 
 from app.api.exceptions import ApplicationException
 from app.dto import BaseResponse
-from config import SECRET_KEY, database
+from config import SECRET_KEY, DATABASE
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def token_required(func):
             # Decoding the token to fetch the stored user details
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             # Querying the database to fetch the current user based on the email stored in the token
-            current_user = database["users"].find_one({"email": data["email"]})
+            current_user = DATABASE["users"].find_one({"email": data["email"]})
             # If the user is not found, raise an ApplicationException with a UNAUTHORIZED status
             if not current_user:
                 raise ApplicationException(

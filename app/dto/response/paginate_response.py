@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from app.dto.response.base_response import BaseResponse
 from app.dto.model.metadata import Metadata
+from app.dto.response.base_response import BaseResponse
 
 
 @dataclass

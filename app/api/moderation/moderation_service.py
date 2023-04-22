@@ -4,11 +4,13 @@ import os
 import random
 from datetime import datetime, timedelta
 from http import HTTPStatus
+from json import loads
 from typing import Tuple
 
 import ffmpeg
 import pdfkit
 import pytz
+import requests
 from babel.dates import format_datetime
 from bson.objectid import ObjectId
 from flask import request
@@ -21,19 +23,19 @@ from app.api.exceptions import ApplicationException
 from app.dto import (CreateModerationRequest, ModerationDecision,
                      ModerationResponse, ModerationStatus, PaginateResponse,
                      UploadInfo)
-from config import STORAGE_CLIENT, UPLOAD_PATH, database
+from config import GOOGLE_STORAGE_CLIENT, UPLOAD_PATH, DATABASE, GOOGLE_BUCKET_NAME
 from redis_worker import conn
 
 # ======== INITIALIZATIONS ========
 logger = logging.getLogger(__name__)
-MODERATION_DB = database["moderation"]
+MODERATION_DB = DATABASE["moderation"]
 redis_conn = Queue(connection=conn)
 
 
 # ======== returns a PaginateResponse containing a list of ModerationResponses based on the provided query parameters ========
 def get_by_params(query_params: dict) -> PaginateResponse:
     response = PaginateResponse()
-    moderation = database["moderation"]
+    moderation = DATABASE["moderation"]
 
     # Clean the query parameters to remove any invalid or unnecessary values
     params, pagination = clean_query_params(query_params)
@@ -85,7 +87,7 @@ def get_by_params(query_params: dict) -> PaginateResponse:
 
 # ======== get count by params ========
 def get_count_by_params(query_params: dict) -> int:
-    moderation = database["moderation"]
+    moderation = DATABASE["moderation"]
 
     params, _ = clean_query_params(query_params)
     query, _ = parse_query_params(params)
@@ -221,7 +223,7 @@ def generate_pdf_report(moderation_id):
     moderation = ModerationResponse.from_document(result)
 
     # Get the HTML template for the PDF report from a Google Cloud Storage bucket
-    bucket = STORAGE_CLIENT.bucket("kpid-jatim")
+    bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
     html_blob = bucket.blob("template/template_surat_2.html")
     html = html_blob.download_as_text()
 
@@ -326,32 +328,19 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
 
 # ======== extract frames from the uploaded video and upload them to Google Cloud Storage ========
 def extract_frames(upload_info: UploadInfo, metadata):
-    # Create a VideoFileClip object from the uploaded video file
-    clip = VideoFileClip(upload_info.save_path)
-
-    # Extract frames from the video and save them to the local filesystem
-    for i in range(0, math.floor(float(metadata[0]["duration"]))):
-        save_path = f'{UPLOAD_PATH}/{upload_info.filename}_f{i}.jpg'
-        logger.info("Saving frame %s to %s", i, save_path)
-        clip.save_frame(save_path, i)
-
-    # Upload the saved frames to Google Cloud Storage and update the moderation in the database to reference the uploaded frames
-    temp_frames = []
-    frames_to_delete = []
-    for i in range(0, math.floor(float(metadata[0]["duration"]))):
-        save_path = f'{UPLOAD_PATH}/{upload_info.filename}_f{i}.jpg'
-        frames_to_delete.append(save_path)
-        bucket_path = f"moderation/{upload_info.user_id}/{upload_info.filename}/frames/{upload_info.user_id}_{upload_info.filename}_f{i}.jpg"
-        temp_frames.append(bucket_path)
-        upload_to_gcloud(bucket_path, save_path)
-
-    # Delete the saved frames from the local filesystem
-    for frame in frames_to_delete:
-        os.remove(frame)
+    payload = {
+        "filename": upload_info.file_with_ext,
+        "video_path": f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}",
+        "user_id": upload_info.user_id,
+    }
+    req_response = requests.post(
+        "", payload)
+    logger.error(str(req_response.json()))
+    frame_results = loads(str(req_response.json()).replace("'", '"'))
 
     # Update the moderation in the database to reference the uploaded frames and set its status to UPLOADED
     MODERATION_DB.update_one({"_id": ObjectId(upload_info.saved_id)}, {"$set": {
-                             "frames": temp_frames, "status": str(ModerationStatus.UPLOADED)}})
+                             "frames": frame_results, "status": str(ModerationStatus.UPLOADED)}})
 
     logger.info("Frames uploaded to gcloud")
 
@@ -365,7 +354,7 @@ def cut_video(upload_info: UploadInfo, metadata):
     if not os.path.exists(upload_info.save_path):
         # if the file does not exist, download it from GCP bucket
         blob_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
-        bucket = STORAGE_CLIENT.bucket("kpid-jatim")
+        bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
         blob = bucket.blob(blob_path)
         blob.download_to_filename(upload_info.save_path)
 
@@ -407,7 +396,7 @@ def cut_video(upload_info: UploadInfo, metadata):
 # ======== main method to upload to gcs ========
 def upload_to_gcloud(destination, source):
     try:
-        bucket = STORAGE_CLIENT.bucket("kpid-jatim")
+        bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
         user_blob = bucket.blob(destination)
         user_blob.upload_from_filename(source)
         user_blob.make_public()
@@ -433,7 +422,7 @@ def generate_html_tags(result):
         # Add an <li> element containing a link to the video and the detected categories to the HTML string
         html_tags += f'''
         <li>
-            <a href="https://kpid-jatim.storage.googleapis.com/{val["clip_url"]}">Video {count}</a>
+            <a href="https://{GOOGLE_BUCKET_NAME}.storage.googleapis.com/{val["clip_url"]}">Video {count}</a>
             <br/>
             Terdeteksi mengandung unsur melanggar {categories}
         </li>
