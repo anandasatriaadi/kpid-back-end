@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http import HTTPStatus
 
 
 @dataclass
 class BaseResponse(object):
-    data: any = None
-    status: HTTPStatus = None
+    data: any = field(default=None)
+    status: HTTPStatus = field(default=None)
 
     def set_response(self, data, status):
         self.data = data

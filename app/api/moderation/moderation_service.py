@@ -15,7 +15,6 @@ from babel.dates import format_datetime
 from bson.objectid import ObjectId
 from flask import request
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
-from moviepy.video.io.VideoFileClip import VideoFileClip
 from rq import Queue
 
 from app.api.common.utils import clean_query_params, parse_query_params
@@ -23,7 +22,8 @@ from app.api.exceptions import ApplicationException
 from app.dto import (CreateModerationRequest, ModerationDecision,
                      ModerationResponse, ModerationStatus, PaginateResponse,
                      UploadInfo)
-from config import GOOGLE_STORAGE_CLIENT, UPLOAD_PATH, DATABASE, GOOGLE_BUCKET_NAME
+from config import (DATABASE, GOOGLE_BUCKET_NAME, GOOGLE_STORAGE_CLIENT,
+                    UPLOAD_PATH)
 from redis_worker import conn
 
 # ======== INITIALIZATIONS ========

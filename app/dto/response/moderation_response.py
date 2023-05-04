@@ -4,15 +4,8 @@ from typing import List
 
 from bson import ObjectId
 
-from app.dto import ModerationDecision, ModerationStatus
+from app.dto import ModerationResult, ModerationStatus
 
-
-@dataclass
-class ModerationResult():
-    second: float
-    clip_url: str
-    decision: ModerationDecision
-    category: List[str]
 
 @dataclass
 class ModerationResponse():

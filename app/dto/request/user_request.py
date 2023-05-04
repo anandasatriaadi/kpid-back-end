@@ -1,4 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
+
+from pytz import timezone
 
 
 @dataclass
@@ -13,3 +16,5 @@ class CreateUserRequest(object):
     email: str
     password: str
     user_id: str = None
+    last_login: datetime = None
+    created_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))

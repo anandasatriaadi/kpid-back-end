@@ -1,7 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+
 from pytz import timezone
+
 from app.dto.enum import ModerationStatus
+
 
 @dataclass
 class CreateModerationRequest():
