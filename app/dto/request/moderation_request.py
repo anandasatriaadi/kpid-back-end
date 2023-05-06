@@ -4,6 +4,7 @@ from datetime import datetime
 from pytz import timezone
 
 from app.dto.enum import ModerationStatus
+from app.dto.model import Station
 
 
 @dataclass
@@ -11,7 +12,7 @@ class CreateModerationRequest():
     user_id: str
     filename: str
     program_name: str
-    station_name: str
+    station_name: Station
     description: str
     recording_date: datetime
     start_time: str
@@ -27,6 +28,7 @@ class CreateModerationRequest():
     def as_dict(self):
         data = self.__dict__.copy()
         data['status'] = self.status.value
+        data['station_name'] = self.station_name.__dict__
         return data
 
 
@@ -34,7 +36,7 @@ class CreateModerationRequest():
 class UpdateModerationRequest():
     filename: str
     program_name: str
-    station_name: str
+    station_name: Station
     status: ModerationStatus
     updated_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
     result: list = field(default_factory=list)

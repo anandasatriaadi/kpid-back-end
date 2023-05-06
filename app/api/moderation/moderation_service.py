@@ -17,19 +17,22 @@ from flask import request
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from rq import Queue
 
+from app.api.common.string_utils import tokenize_string
 from app.api.common.utils import clean_query_params, parse_query_params
 from app.api.exceptions import ApplicationException
+from app.api.station.station_service import create_station
 from app.dto import (CreateModerationRequest, ModerationDecision,
                      ModerationResponse, ModerationStatus, PaginateResponse,
-                     UploadInfo)
-from config import (DATABASE, GOOGLE_BUCKET_NAME, GOOGLE_STORAGE_CLIENT,
-                    UPLOAD_PATH)
+                     Station, UploadInfo)
+from config import (DATABASE, GOOGLE_BUCKET_NAME, GOOGLE_EXTRACT_FRAME_URL,
+                    GOOGLE_STORAGE_CLIENT, UPLOAD_PATH)
 from redis_worker import conn
 
 # ======== INITIALIZATIONS ========
 logger = logging.getLogger(__name__)
-MODERATION_DB = DATABASE["moderation"]
 redis_conn = Queue(connection=conn)
+MODERATION_DB = DATABASE["moderation"]
+STATION_DB = DATABASE["stations"]
 
 
 # ======== returns a PaginateResponse containing a list of ModerationResponses based on the provided query parameters ========
@@ -236,7 +239,11 @@ def generate_pdf_report(moderation_id):
     html = html.replace("{{record_date}}", format_datetime(
         moderation.recording_date, "d MMMM YYYY", locale="id_ID"))
     html = html.replace("{{start_time}}", moderation.start_time)
-    html = html.replace("{{station_name}}", moderation.station_name)
+    if isinstance(moderation.station_name, dict):
+        station = Station.from_document(moderation.station_name)
+        html = html.replace("{{station_name}}", station.name)
+    else:
+        html = html.replace("{{station_name}}", moderation.station_name)
     html = html.replace("{{program_name}}", moderation.program_name)
     html = html.replace("{{results}}",
                         html_results)
@@ -303,12 +310,26 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
 
     frame, divider = video_metadata[0]["r_frame_rate"].split("/")
 
+    # Check for station availability in DB
+    tokenized_name = tokenize_string(form_data["station_name"], True)
+    query = {"key": tokenized_name}
+    station = STATION_DB.find_one(query)
+    if station is None:
+        [inserted_id, status] = create_station(form_data["station_name"])
+        if HTTPStatus.CREATED != status:
+            raise ApplicationException(
+                "Failed to create station", HTTPStatus.BAD_REQUEST
+            )
+        station = STATION_DB.find_one({"_id": ObjectId(inserted_id)})
+    
+    parsed_station = Station.from_document(station)
+
     # Create a CreateModerationRequest object with the parsed metadata
     create_request = CreateModerationRequest(
         user_id=upload_info.user_id,
         filename=upload_info.file_with_ext,
         program_name=form_data["program_name"],
-        station_name=form_data["station_name"],
+        station_name=parsed_station,
         description=form_data["description"],
         recording_date=recording_date,
         start_time=str(start_time),
@@ -333,8 +354,7 @@ def extract_frames(upload_info: UploadInfo, metadata):
         "video_path": f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}",
         "user_id": upload_info.user_id,
     }
-    req_response = requests.post(
-        "", payload)
+    req_response = requests.post(GOOGLE_EXTRACT_FRAME_URL, payload)
     logger.error(str(req_response.json()))
     frame_results = loads(str(req_response.json()).replace("'", '"'))
 

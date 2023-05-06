@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from http import HTTPStatus
 
+from bson import ObjectId
 from flask import Blueprint, make_response, request
 from pytz import timezone
 from rq import Queue
@@ -16,8 +17,9 @@ from app.api.moderation.moderation_service import (cut_video, extract_frames,
                                                    get_monthly_statistics,
                                                    save_file, start_moderation,
                                                    validate_moderation)
-from app.dto import BaseResponse, PaginateResponse, UploadInfo
-from config import UPLOAD_PATH
+from app.dto import (BaseResponse, ModerationResponse, PaginateResponse,
+                     UploadInfo)
+from config import DATABASE, UPLOAD_PATH
 from redis_worker import conn
 
 logger = logging.getLogger(__name__)
@@ -244,3 +246,15 @@ def validate_result(_):
         response.set_response(str(err), err.status)
 
     return response.get_response()
+
+
+@moderation_bp.route('/testing123', methods=['PUT', 'POST'])
+def test():
+    moderation_id = request.form["id"]
+    MODERATION_DB = DATABASE["moderation"]
+    moderation = ModerationResponse.from_document(
+        MODERATION_DB.find_one({"_id": ObjectId(moderation_id)}))
+    upload_info = UploadInfo(user_id=moderation.user_id, filename=moderation.filename, file_ext=moderation.filename.split(
+        ".")[-1], file_with_ext=moderation.filename, save_path=moderation.filename)
+    upload_info.saved_id = moderation_id
+    extract_frames(upload_info, "test")

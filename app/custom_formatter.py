@@ -20,7 +20,7 @@ class ColorizedArgsFormatter(logging.Formatter):
     arg_colors = [ColorCodes.purple, ColorCodes.light_blue]
     level_fields = ["levelname", "levelno"]
     level_to_color = {
-        logging.DEBUG: ColorCodes.grey,
+        logging.DEBUG: ColorCodes.blue,
         logging.INFO: ColorCodes.green,
         logging.WARNING: ColorCodes.yellow,
         logging.ERROR: ColorCodes.red,
@@ -29,101 +29,46 @@ class ColorizedArgsFormatter(logging.Formatter):
 
     def __init__(self, fmt: str):
         super().__init__()
-        self.level_to_formatter = {}
+        self.level_to_formatter = {level: self._create_formatter(
+            fmt, level) for level in self.level_to_color}
 
-        def add_color_format(level: int):
-            color = ColorizedArgsFormatter.level_to_color[level]
-            _format = fmt
-            for fld in ColorizedArgsFormatter.level_fields:
-                search = "(%\(" + fld + "\).*?s)"
-                _format = re.sub(
-                    search, f"{color}\\1{ColorCodes.reset}", _format)
-            formatter = logging.Formatter(_format)
-            self.level_to_formatter[level] = formatter
-
-        add_color_format(logging.DEBUG)
-        add_color_format(logging.INFO)
-        add_color_format(logging.WARNING)
-        add_color_format(logging.ERROR)
-        add_color_format(logging.CRITICAL)
-
-    @staticmethod
-    def rewrite_record(record: logging.LogRecord):
-        if not BraceFormatStyleFormatter.is_brace_format_style(record):
-            return
-
-        msg = record.msg
-        msg = msg.replace("{", "_{{")
-        msg = msg.replace("}", "_}}")
-        placeholder_count = 0
-        # add ANSI escape code for next alternating color before each formatting parameter
-        # and reset color after it.
-        while True:
-            if "_{{" not in msg:
-                break
-            color_index = placeholder_count % len(
-                ColorizedArgsFormatter.arg_colors)
-            color = ColorizedArgsFormatter.arg_colors[color_index]
-            msg = msg.replace("_{{", color + "{", 1)
-            msg = msg.replace("_}}", "}" + ColorCodes.reset, 1)
-            placeholder_count += 1
-
-        record.msg = msg.format(*record.args)
-        record.args = []
-
-    def format(self, record):
-        orig_msg = record.msg
-        orig_args = record.args
-        formatter = self.level_to_formatter.get(record.levelno)
-        self.rewrite_record(record)
-        formatted = formatter.format(record)
-        record.msg = orig_msg
-        record.args = orig_args
-        return formatted
-
-
-class BraceFormatStyleFormatter(logging.Formatter):
-    def __init__(self, fmt: str):
-        super().__init__()
-        self.formatter = logging.Formatter(fmt)
+    def _create_formatter(self, fmt: str, level: int):
+        color = self.level_to_color[level]
+        for fld in self.level_fields:
+            search = f"(%\({fld}\).*?s)"
+            fmt = re.sub(search, f"{color}\\1{ColorCodes.reset}", fmt)
+        return logging.Formatter(fmt)
 
     @staticmethod
     def is_brace_format_style(record: logging.LogRecord):
-        if len(record.args) == 0:
+        if not record.args:
             return False
 
         msg = record.msg
         if '%' in msg:
             return False
 
-        count_of_start_param = msg.count("{")
-        count_of_end_param = msg.count("}")
-
-        if count_of_start_param != count_of_end_param:
-            return False
-
-        if count_of_start_param != len(record.args):
-            return False
-
-        return True
+        return msg.count("{") == msg.count("}") == len(record.args)
 
     @staticmethod
     def rewrite_record(record: logging.LogRecord):
-        if not BraceFormatStyleFormatter.is_brace_format_style(record):
+        if not ColorizedArgsFormatter.is_brace_format_style(record):
             return
 
-        record.msg = record.msg.format(*record.args)
+        msg = record.msg.replace("{", "{{").replace("}", "}}")
+        for index, color in enumerate(ColorizedArgsFormatter.arg_colors, start=1):
+            msg = msg.replace(
+                "{{", f"{color}{{", index).replace("}}", f"}}{ColorCodes.reset}", index)
+
+        record.msg = msg.format(*record.args)
         record.args = []
 
     def format(self, record):
-        orig_msg = record.msg
-        orig_args = record.args
+        orig_msg, orig_args = record.msg, record.args
+        formatter = self.level_to_formatter.get(record.levelno)
         self.rewrite_record(record)
-        formatted = self.formatter.format(record)
-
-        # restore log record to original state for other handlers
-        record.msg = orig_msg
-        record.args = orig_args
+        formatted = formatter.format(record)
+        record.msg, record.args = orig_msg, orig_args
         return formatted
 
 
@@ -138,3 +83,13 @@ def init_logging():
     colored_formatter = ColorizedArgsFormatter(console_format)
     console_handler.setFormatter(colored_formatter)
     root_logger.addHandler(console_handler)
+
+
+if __name__ == "__main__":
+    init_logging()
+    logger = logging.getLogger(__name__)
+    logger.debug("Debug message: {0}", 123)
+    logger.info("Info message: {0}", 456)
+    logger.warning("Warning message: {0}", 789)
+    logger.error("Error message: {0}", 101112)
+    logger.critical("Critical message: {0}", 131415)

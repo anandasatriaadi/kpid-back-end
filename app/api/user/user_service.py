@@ -110,7 +110,6 @@ def signup_user(create_request: CreateUserRequest) -> Dict[str, Union[str, int]]
 
     # Returning the response as a dictionary
     return response.get_response()
-    return response.get_response()
 
 
 # ======== POST : login user ========

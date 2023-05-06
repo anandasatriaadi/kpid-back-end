@@ -12,7 +12,7 @@ from pytz import timezone
 
 from app.api.exceptions import ApplicationException
 from app.dto import BaseResponse
-from config import SECRET_KEY, DATABASE
+from config import DATABASE, SECRET_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -171,10 +171,12 @@ def parse_query_params(query_params: Dict[str, str]) -> Tuple[Dict[str, any], Di
     temp = []
     for field, values in criteria.items():
         for value in values:
-            logger.error(value)
             temp.append({field: value})
 
-    criteria = {'$and': temp}
+    if temp and len(temp) > 1:
+        criteria = {'$and': temp}
+    else:
+        criteria = {}
     # Returning a tuple containing the criteria dictionary and the sorting dictionary
     return criteria, sorting
 

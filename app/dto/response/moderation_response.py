@@ -4,7 +4,7 @@ from typing import List
 
 from bson import ObjectId
 
-from app.dto import ModerationResult, ModerationStatus
+from app.dto import ModerationResult, ModerationStatus, Station
 
 
 @dataclass
@@ -13,7 +13,7 @@ class ModerationResponse():
     user_id: str
     filename: str
     program_name: str
-    station_name: str
+    station_name: Station | str
     start_time: str
     end_time: str
     fps: int
@@ -26,7 +26,6 @@ class ModerationResponse():
     updated_at: datetime = field(default=None)
     result: List[ModerationResult] = field(default=None)
     frames: list = field(default=None)
-    videos: list = field(default=None)
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -35,4 +34,6 @@ class ModerationResponse():
     def from_document(cls, document: dict):
         data = document.copy()
         data['_id'] = str(data['_id'])
+        if isinstance(data['station_name'], dict):
+            data['station_name'] = Station.from_document(data['station_name']).as_dict()
         return cls(**data)

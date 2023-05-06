@@ -6,6 +6,7 @@ from bson import ObjectId
 
 from app.dto.enum.moderation_status import ModerationStatus
 from app.dto.model.moderation_result import ModerationResult
+from app.dto.model.station import Station
 
 
 @dataclass
@@ -14,7 +15,7 @@ class Moderation():
     user_id: str
     filename: str
     program_name: str
-    station_name: str
+    station_name: Station | str
     start_time: str
     end_time: str
     fps: int
@@ -36,4 +37,7 @@ class Moderation():
     def from_document(cls, document: dict):
         data = document.copy()
         data['_id'] = str(data['_id'])
+        if isinstance(data['station_name'], dict):
+            data['station_name'] = Station.from_document(
+                data['station_name']).as_dict()
         return cls(**data)
