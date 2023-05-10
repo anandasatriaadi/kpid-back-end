@@ -10,6 +10,7 @@ class Station():
     key: str = None
     name: str = None
     created_at: datetime = None
+    updated_at: datetime = None
 
     def as_dict(self):
         data = self.__dict__.copy()

@@ -322,7 +322,10 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
             )
         station = STATION_DB.find_one({"_id": ObjectId(inserted_id)})
     
-    parsed_station = Station.from_document(station)
+    parsed_station = Station.from_document(station).as_dict()
+    parsed_station.pop("created_at")
+    parsed_station.pop("updated_at")
+
 
     # Create a CreateModerationRequest object with the parsed metadata
     create_request = CreateModerationRequest(

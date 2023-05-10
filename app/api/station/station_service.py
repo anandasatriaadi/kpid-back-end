@@ -6,10 +6,10 @@ from typing import Dict, List, Tuple
 
 from dacite import from_dict
 
+from app.api.common.query_utils import clean_query_params, parse_query_params
 from app.api.common.string_utils import tokenize_string
-from app.api.common.utils import clean_query_params, parse_query_params
 from app.dto import (BaseResponse, CreateStationRequest, PaginateResponse,
-                     Station, StationResponse)
+                     Station, StationResponse, UpdateStationRequest)
 from config import DATABASE
 
 logger = logging.getLogger(__name__)
@@ -42,8 +42,8 @@ def get_station_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
         # Fetching stations based on the query parameters, sorting them, and paginating the results
         for station in STATION_DB.find(query).sort(sort["field"], sort["direction"]).skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"]):
             # Converting the station data to a StationResponse object and adding it to the output list
-            res = from_dict(data_class=StationResponse, data=Station.from_document(station).as_dict())
-            output.append(res.__dict__)
+            res = StationResponse.from_document(Station.from_document(station).as_dict())
+            output.append(res)
 
         # Setting the metadata for the response
         response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(
@@ -62,7 +62,7 @@ def get_station_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
 
 
 # ======== Create station ========
-def create_station(station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
+def create_station(station_name: str) -> Tuple[str, HTTPStatus]:
     """
     A function that creates a new station in the database with the details provided in the CreateStationRequest object.
 
@@ -89,7 +89,44 @@ def create_station(station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
             res = STATION_DB.insert_one(asdict(create_request))
 
             # Setting the response for successful station creation
-            response.set_response(res.inserted_id, HTTPStatus.CREATED)
+            response.set_response(str(res.inserted_id), HTTPStatus.CREATED)
+
+    except Exception as err:
+        logger.error(err)
+        # Setting the response for internal server error
+        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    # Returning the response as a dictionary
+    return response.get_response()
+
+
+def update_station(old_key: str, station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
+    """
+    A function that updates an existing station in the database with the details provided in the UpdateStationRequest object.
+
+    Args:
+    old_key (str): String of the existing key.
+    station_name (str): String of the existing station name.
+
+    Returns:
+    Tuple[Dict[str, str], HTTPStatus]: A dictionary containing the response message and HTTP status code.
+    """
+
+    response = BaseResponse()
+
+    try:
+        # Checking if the station exists in the database
+        old_key_tokenized = tokenize_string(old_key, True)
+        new_key_tokenized = tokenize_string(station_name, True)
+        station_res = STATION_DB.find_one({"key": old_key_tokenized})
+
+        if station_res:
+            # Update existing station details
+            update_request = UpdateStationRequest(key=new_key_tokenized, name=station_name)
+            res = STATION_DB.update_one({"key": old_key_tokenized}, {"$set": asdict(update_request)})
+            response.set_response(str(res.modified_count) + " station updated", HTTPStatus.OK)
+        else:
+            response.set_response("Station not found", HTTPStatus.BAD_REQUEST)
 
     except Exception as err:
         logger.error(err)

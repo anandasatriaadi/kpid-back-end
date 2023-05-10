@@ -28,7 +28,8 @@ class CreateModerationRequest():
     def as_dict(self):
         data = self.__dict__.copy()
         data['status'] = self.status.value
-        data['station_name'] = self.station_name.__dict__
+        if not isinstance(data['station_name'], dict):
+            data['station_name'] = self.station_name.__dict__
         return data
 
 
