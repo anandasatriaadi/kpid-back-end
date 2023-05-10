@@ -13,7 +13,7 @@ from dacite import from_dict
 from pytz import timezone
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.api.common.utils import clean_query_params, parse_query_params
+from app.api.common.query_utils import clean_query_params, parse_query_params
 from app.dto import (BaseResponse, CreateUserRequest, PaginateResponse, User,
                      UserResponse)
 from config import DATABASE, SECRET_KEY

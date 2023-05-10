@@ -4,7 +4,7 @@ from http import HTTPStatus
 from dacite import from_dict
 from flask import Blueprint, request
 
-from app.api.common.utils import token_required
+from app.api.common.wrapper_utils import token_required
 from app.api.user.user_service import (get_user_by_params, login_user,
                                        signup_user)
 from app.dto import (BaseResponse, CreateUserRequest, LoginUserRequest,

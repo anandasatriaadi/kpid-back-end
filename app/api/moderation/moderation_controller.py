@@ -8,7 +8,7 @@ from flask import Blueprint, make_response, request
 from pytz import timezone
 from rq import Queue
 
-from app.api.common.utils import token_required
+from app.api.common.wrapper_utils import token_required
 from app.api.exceptions import ApplicationException
 from app.api.moderation.moderation_service import (cut_video, extract_frames,
                                                    generate_pdf_report,
@@ -28,7 +28,7 @@ redis_conn = Queue(connection=conn)
 
 
 # ======== get moderations by parameters ========
-@moderation_bp.route('/moderation', methods=['GET'])
+@moderation_bp.route('/moderations', methods=['GET'])
 @token_required
 def get_moderation_by_params(_):
     response = PaginateResponse()
@@ -45,7 +45,7 @@ def get_moderation_by_params(_):
 
 
 # ======== get list of moderations for the current user ========
-@moderation_bp.route('/moderation-list', methods=['GET'])
+@moderation_bp.route('/moderations/user', methods=['GET'])
 @token_required
 def get_moderation_list(current_user):
     response = PaginateResponse()
@@ -64,7 +64,7 @@ def get_moderation_list(current_user):
 
 
 # ======== get moderation by ID ========
-@moderation_bp.route('/moderation/<moderation_id>', methods=['GET'])
+@moderation_bp.route('/moderations/<moderation_id>', methods=['GET'])
 @token_required
 def get_moderation(current_user, moderation_id):
     response = BaseResponse()
@@ -89,9 +89,9 @@ def get_moderation(current_user, moderation_id):
 
 
 # ======== get count of moderations by parameters ========
-@moderation_bp.route('/moderation/count', methods=['GET'])
+@moderation_bp.route('/moderations/count', methods=['GET'])
 @token_required
-def get_moderation_count_by_params(_):
+def get_moderation_count(_):
     response = PaginateResponse()
     try:
         query_params = request.args.to_dict()
@@ -104,7 +104,7 @@ def get_moderation_count_by_params(_):
 
 
 # ======== handle moderation form submission ========
-@moderation_bp.route('/moderation-form', methods=['POST'])
+@moderation_bp.route('/moderations', methods=['POST'])
 @token_required
 def upload_form(current_user):
     response = BaseResponse()
@@ -144,11 +144,11 @@ def upload_form(current_user):
 
 
 # ======== handle start moderation ========
-@moderation_bp.route('/moderation/start', methods=['PUT'])
+@moderation_bp.route('/moderations/<moderation_id>/start', methods=['PUT'])
 @token_required
-def initiate_moderation(_):
+def initiate_moderation(_, moderation_id):
     response = BaseResponse()
-    moderation_id = request.form["id"]
+    form_moderation_id = request.form["id"]
 
     try:
         # Initiate the moderation with the provided ID
@@ -166,7 +166,7 @@ def initiate_moderation(_):
 
 
 # ======== get moderation statistics ========
-@moderation_bp.route('/moderation/statistics', methods=['GET'])
+@moderation_bp.route('/moderations/statistics', methods=['GET'])
 @token_required
 def moderation_statistic(_):
     response = BaseResponse()
@@ -211,7 +211,7 @@ def moderation_statistic(_):
 
 
 # ======== generate a PDF report for a moderation ========
-@moderation_bp.route('/moderation/report/<moderation_id>', methods=['GET'])
+@moderation_bp.route('/moderations/<moderation_id>/report', methods=['GET'])
 @token_required
 def generate_report(_, moderation_id):
     # Call the generate_pdf_report function with the provided moderation ID to generate the PDF report
@@ -227,9 +227,9 @@ def generate_report(_, moderation_id):
 
 
 # ======== validate moderation results ========
-@moderation_bp.route('/moderation/validate', methods=['PUT'])
+@moderation_bp.route('/moderations/<moderation_id>/validate', methods=['PUT'])
 @token_required
-def validate_result(_):
+def validate_result(_, moderation_id):
     response = BaseResponse()
     moderation_id = request.form["id"]
     result_index = request.form["index"]
@@ -246,15 +246,3 @@ def validate_result(_):
         response.set_response(str(err), err.status)
 
     return response.get_response()
-
-
-@moderation_bp.route('/testing123', methods=['PUT', 'POST'])
-def test():
-    moderation_id = request.form["id"]
-    MODERATION_DB = DATABASE["moderation"]
-    moderation = ModerationResponse.from_document(
-        MODERATION_DB.find_one({"_id": ObjectId(moderation_id)}))
-    upload_info = UploadInfo(user_id=moderation.user_id, filename=moderation.filename, file_ext=moderation.filename.split(
-        ".")[-1], file_with_ext=moderation.filename, save_path=moderation.filename)
-    upload_info.saved_id = moderation_id
-    extract_frames(upload_info, "test")
