@@ -8,7 +8,7 @@ from flask import Blueprint, make_response, request
 from pytz import timezone
 from rq import Queue
 
-from app.api.common.wrapper_utils import token_required
+from app.api.common.wrapper_utils import is_admin, token_required
 from app.api.exceptions import ApplicationException
 from app.api.moderation.moderation_service import (cut_video, extract_frames,
                                                    generate_pdf_report,
@@ -17,8 +17,7 @@ from app.api.moderation.moderation_service import (cut_video, extract_frames,
                                                    get_monthly_statistics,
                                                    save_file, start_moderation,
                                                    validate_moderation)
-from app.dto import (BaseResponse, ModerationResponse, PaginateResponse,
-                     UploadInfo)
+from app.dto import BaseResponse, PaginateResponse, UploadInfo, User
 from config import DATABASE, UPLOAD_PATH
 from redis_worker import conn
 
@@ -30,6 +29,7 @@ redis_conn = Queue(connection=conn)
 # ======== get moderations by parameters ========
 @moderation_bp.route('/moderations', methods=['GET'])
 @token_required
+@is_admin
 def get_moderation_by_params(_):
     response = PaginateResponse()
     try:
@@ -47,12 +47,12 @@ def get_moderation_by_params(_):
 # ======== get list of moderations for the current user ========
 @moderation_bp.route('/moderations/user', methods=['GET'])
 @token_required
-def get_moderation_list(current_user):
+def get_moderation_list(current_user: User):
     response = PaginateResponse()
     try:
         # Get the query parameters from the request as a dictionary and set the user_id and status.exists parameters
         query_params = request.args.to_dict()
-        query_params["user_id"] = current_user["user_id"]
+        query_params["user_id"] = str(current_user._id)
         
         # Get the results
         response = get_by_params(query_params)
@@ -66,13 +66,13 @@ def get_moderation_list(current_user):
 # ======== get moderation by ID ========
 @moderation_bp.route('/moderations/<moderation_id>', methods=['GET'])
 @token_required
-def get_moderation(current_user, moderation_id):
+def get_moderation(current_user: User, moderation_id):
     response = BaseResponse()
     try:
         # Get the query parameters from the request as a dictionary and set the id and user_id parameters
         query_params = request.args.to_dict()
         query_params["id"] = moderation_id
-        query_params["user_id"] = current_user["user_id"]
+        query_params["user_id"] = str(current_user._id)
 
         # Get results. If no moderations were found, raise an ApplicationException with a 404 status
         result = get_by_params(query_params)
@@ -106,19 +106,19 @@ def get_moderation_count(_):
 # ======== handle moderation form submission ========
 @moderation_bp.route('/moderations', methods=['POST'])
 @token_required
-def upload_form(current_user):
+def upload_form(current_user: User):
     response = BaseResponse()
     file = request.files['video_file']
     form_data = request.form
 
     # Create an UploadInfo object with the user ID, filename, file extension, save path, and file with extension
     upload_info = UploadInfo(
-        user_id=str(current_user["user_id"]),
+        user_id=str(current_user._id),
         filename=f"{file.filename.split('.')[0]}",
         file_ext=f"{file.filename.split('.')[-1]}",
         file_with_ext=f"{file.filename}",
         save_path=os.path.join(
-            UPLOAD_PATH, f"{str(current_user['user_id'])}_{file.filename}"),
+            UPLOAD_PATH, f"{str(current_user._id)}_{file.filename}"),
     )
 
     # Call the save_file function to save the uploaded file and get the updated UploadInfo object and video metadata
@@ -152,7 +152,7 @@ def initiate_moderation(_, moderation_id):
 
     try:
         # Initiate the moderation with the provided ID
-        start_moderation(moderation_id)
+        start_moderation(form_moderation_id)
 
         # Set the response data to indicate that the moderation has been started
         response.set_response("Moderation Started.", HTTPStatus.OK)
@@ -177,8 +177,7 @@ def moderation_statistic(_):
 
         # If no start date is provided, set it to 30 days ago
         if query_params.get("start_date") is None or query_params.get("start_date") == "":
-            query_params["start_date"] = datetime.now().astimezone(
-                timezone("Asia/Jakarta")) + timedelta(days=-30)
+            query_params["start_date"] = datetime.now().astimezone(timezone("Asia/Jakarta")) + timedelta(days=-30)
         else:
             # Otherwise, parse the provided start date string into a datetime object
             query_params["start_date"] = datetime.strptime(
@@ -186,16 +185,14 @@ def moderation_statistic(_):
 
         # If no end date is provided, set it to the current date and time
         if query_params.get("end_date") is None or query_params.get("end_date") == "":
-            query_params["end_date"] = datetime.now(
-            ).astimezone(timezone("Asia/Jakarta"))
+            query_params["end_date"] = datetime.now().astimezone(timezone("Asia/Jakarta"))
         else:
             # Otherwise, parse the provided end date string into a datetime object
-            query_params["end_date"] = datetime.strptime(
-                query_params["end_date"], '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
+            query_params["end_date"] = datetime.strptime(query_params["end_date"], '%Y-%m-%d')\
+                .astimezone(timezone("Asia/Jakarta"))
 
         # Get the monthly statistics for the provided date range
-        all_result, detected_result = get_monthly_statistics(
-            query_params["start_date"], query_params["end_date"])
+        all_result, detected_result = get_monthly_statistics(query_params["start_date"], query_params["end_date"])
 
         # Set the response data to be the monthly statistics
         response.set_response(

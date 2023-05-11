@@ -2,7 +2,7 @@ import logging
 
 from flask import Blueprint, request
 
-from app.api.common.wrapper_utils import token_required
+from app.api.common.wrapper_utils import is_admin, token_required
 from app.api.station.station_service import (create_station,
                                              get_station_by_params,
                                              update_station)
@@ -28,6 +28,7 @@ def get_all_stations(_):
 # ======== get all stations ========
 @station_bp.route('/stations', methods=['POST'])
 @token_required
+@is_admin
 def create_new_station(_):
     # Parse form data from the request
     if request.mimetype == "application/json":
@@ -42,6 +43,7 @@ def create_new_station(_):
 # ======== get all stations ========
 @station_bp.route('/stations', methods=['PUT'])
 @token_required
+@is_admin
 def update_existing_station(_):
     # Parse query parameters from the request
     if request.mimetype == "application/json":

@@ -4,10 +4,10 @@ from http import HTTPStatus
 from dacite import from_dict
 from flask import Blueprint, request
 
-from app.api.common.wrapper_utils import token_required
+from app.api.common.wrapper_utils import is_admin, token_required
 from app.api.user.user_service import (get_user_by_params, login_user,
                                        signup_user)
-from app.dto import (BaseResponse, CreateUserRequest, LoginUserRequest,
+from app.dto import (BaseResponse, CreateUserRequest, LoginUserRequest, User,
                      UserResponse)
 
 logger = logging.getLogger(__name__)
@@ -18,13 +18,13 @@ user_bp = Blueprint('user', __name__)
 # ======== get all users ========
 @user_bp.route('/users', methods=['GET'])
 @token_required
+@is_admin
 def get_all_users(_):
     # Parse query parameters from the request
-    params = {"_id": None}
+    params = {}
     params["page"] = request.args.get('page', default=0, type=int)
-    params["limit"] = request.args.get('limit', default=10, type=int)
-    sort = request.args.get('sort', default='_id,ASC')
-    params["sort_field"], params["sort_order"] = sort.split(',')
+    params["limit"] = request.args.get('limit', default=20, type=int)
+    params["sort"] = request.args.get('sort', default='_id,ASC')
 
     # Call the get_user_by_params function with the parsed query parameters and return the response
     return get_user_by_params(params)
@@ -33,11 +33,11 @@ def get_all_users(_):
 # ======== get user by token ========
 @user_bp.route('/user', methods=['GET'])
 @token_required
-def get_user(current_user):
+def get_user(current_user: User):
     response = BaseResponse()
 
     # Convert the current user data to a UserResponse object
-    current_user = from_dict(data_class=UserResponse, data=current_user)
+    current_user = from_dict(data_class=UserResponse, data=current_user.as_dict())
 
     # Set the response data to the current user and return the response
     response.set_response(current_user, HTTPStatus.OK)

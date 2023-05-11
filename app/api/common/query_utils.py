@@ -99,7 +99,7 @@ def parse_query_params(query_params: Dict[str, str]) -> Tuple[Dict[str, any], Di
         for value in values:
             temp.append({field: value})
     
-    criteria = {'$and': temp} if len(temp) > 1 else {}
+    criteria = {'$and': temp} if len(temp) >= 1 else {}
 
     return criteria, sorting
 

@@ -5,7 +5,7 @@ import random
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from json import loads
-from typing import Tuple
+from typing import Dict, Tuple
 
 import ffmpeg
 import pdfkit
@@ -36,7 +36,7 @@ STATION_DB = DATABASE["stations"]
 
 
 # ======== returns a PaginateResponse containing a list of ModerationResponses based on the provided query parameters ========
-def get_by_params(query_params: dict) -> PaginateResponse:
+def get_by_params(query_params: Dict[str, str]) -> PaginateResponse:
     response = PaginateResponse()
     moderation = DATABASE["moderation"]
 
@@ -45,6 +45,7 @@ def get_by_params(query_params: dict) -> PaginateResponse:
 
     # Parse the cleaned query parameters into a MongoDB query and sort fields
     query, sort = parse_query_params(params)
+    logger.error(f"INCOMING QUERY PARAMS {query} {sort}")
     logger.error(query)
 
     output = []
@@ -62,13 +63,11 @@ def get_by_params(query_params: dict) -> PaginateResponse:
                 pagination["limit"] * pagination["page"]).limit(pagination["limit"])
         else:
             # If there are no pagination parameters, return all results sorted based on the specified field and direction
-            results = moderation.find(query).sort(
-                sort["field"], sort["direction"])
+            results = moderation.find(query).sort(sort["field"], sort["direction"])
     else:
         if len(pagination) > 0:
             # If there are pagination parameters, limit the number of results returned based on the provided page and limit
-            results = moderation.find(query).skip(
-                pagination["limit"] * pagination["page"]).limit(pagination["limit"])
+            results = moderation.find(query).skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"])
         else:
             # If there are no pagination parameters, return all results
             results = moderation.find(query)
@@ -320,7 +319,7 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
             raise ApplicationException(
                 "Failed to create station", HTTPStatus.BAD_REQUEST
             )
-        station = STATION_DB.find_one({"_id": ObjectId(inserted_id)})
+        station = STATION_DB.find_one({"_id": ObjectId(inserted_id["data"])})
     
     parsed_station = Station.from_document(station).as_dict()
     parsed_station.pop("created_at")

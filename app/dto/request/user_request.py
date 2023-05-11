@@ -15,6 +15,7 @@ class CreateUserRequest(object):
     name: str
     email: str
     password: str
-    user_id: str = None
+    confirm_password: str
+    role: str = field(default="user")
     last_login: datetime = None
     created_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))

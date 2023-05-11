@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 STATION_DB = DATABASE["stations"]
 
 # ======== Get stations by params ========
-def get_station_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
+def get_station_by_params(query_params: Dict[str, str]) -> Tuple[List[Dict[str, str]], HTTPStatus]:
     """
     A function that fetches stations from the database based on the query parameters provided.
 
@@ -46,23 +46,20 @@ def get_station_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
             output.append(res)
 
         # Setting the metadata for the response
-        response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(
-            total_elements/pagination["limit"]))
+        response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(total_elements/pagination["limit"]))
         response.set_response(output, HTTPStatus.OK)
 
     except Exception as err:
-        raise err
         logger.error(err)
         # Setting the response for internal server error
-        response.set_response("Internal server error",
-                              HTTPStatus.INTERNAL_SERVER_ERROR)
+        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     # Returning the response as a list of station dictionaries
     return response.get_response()
 
 
 # ======== Create station ========
-def create_station(station_name: str) -> Tuple[str, HTTPStatus]:
+def create_station(station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
     """
     A function that creates a new station in the database with the details provided in the CreateStationRequest object.
 

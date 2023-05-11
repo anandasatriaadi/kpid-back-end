@@ -1,18 +1,19 @@
 from dataclasses import dataclass
-from typing import List
 
-from app.dto import ModerationDecision
+from bson import ObjectId
 
 
 @dataclass
-class ModerationResult():
-    second: float
-    clip_url: str
-    decision: ModerationDecision
-    category: List[str]
+class Pasal(object):
+    _id: ObjectId
+    category: str
+    chapter: str
+    description: str
+    pasal: str
 
     def as_dict(self):
         data = self.__dict__.copy()
+        data['_id'] = str(self._id)
         return data
 
     @classmethod

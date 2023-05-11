@@ -39,5 +39,6 @@ class Moderation():
         data['_id'] = str(data['_id'])
         if isinstance(data['station_name'], dict):
             data['station_name'] = Station.from_document(
-                data['station_name']).as_dict()
+                data['station_name']
+            ).as_dict()
         return cls(**data)

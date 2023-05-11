@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 USER_DB = DATABASE["users"]
 
 # ======== Get users by params ========
+
+
 def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
     """
     A function that fetches users from the database based on the query parameters provided.
@@ -48,8 +50,8 @@ def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
         # Fetching users based on the query parameters, sorting them, and paginating the results
         for user in USER_DB.find(query).sort(sort["field"], sort["direction"]).skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"]):
             # Converting the user data to a UserResponse object and adding it to the output list
-            res = from_dict(data_class=UserResponse, data=user)
-            output.append(res.__dict__)
+            res = UserResponse.from_document(User.from_document(user).as_dict())
+            output.append(res)
 
         # Setting the metadata for the response
         response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(
@@ -57,6 +59,7 @@ def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
         response.set_response(output, HTTPStatus.OK)
 
     except Exception as err:
+        raise(err)
         logger.error(err)
         # Setting the response for internal server error
         response.set_response("Internal server error",
@@ -80,33 +83,42 @@ def signup_user(create_request: CreateUserRequest) -> Dict[str, Union[str, int]]
 
     response = BaseResponse()
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    password_pattern = r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$'
 
     try:
         # Checking if the email address provided is valid
         if not re.match(email_pattern, create_request.email):
             response.set_response("Invalid email address", HTTPStatus.BAD_REQUEST)
+        # Checking if the password meets the requirements
+        elif not re.match(password_pattern, create_request.password):
+            response.set_response(
+                "Password must be at least 8 characters long and contain both letters and numbers.",
+                HTTPStatus.BAD_REQUEST
+            )
+        # Checking if the passwords match
+        elif create_request.password != create_request.confirm_password:
+            response.set_response("Passwords do not match!", HTTPStatus.BAD_REQUEST)
         else:
             # Checking if the user already exists in the database
             user_res = USER_DB.find_one({"email": create_request.email.lower()})
             if user_res:
                 response.set_response("User already exists", HTTPStatus.BAD_REQUEST)
             else:
-                # Generating a hashed password and setting the user_id for the new user
+                # Generating a hashed password for the new user
                 hashed_password = generate_password_hash(
                     create_request.password, "sha256", 24)
                 create_request.password = hashed_password
-                create_request.user_id = str(uuid.uuid4())
 
+                create_request_dict = asdict(create_request)
+                create_request_dict.pop("confirm_password")
                 # Inserting the new user details into the database
-                USER_DB.insert_one(asdict(create_request))
+                USER_DB.insert_one(create_request_dict)
 
                 # Setting the response for successful user creation
                 response.set_response("User created successfully", HTTPStatus.CREATED)
 
     except Exception as err:
-        logger.error(err)
-        # Setting the response for internal server error
-        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+        response.set_response("An error occurred", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     # Returning the response as a dictionary
     return response.get_response()
@@ -141,8 +153,8 @@ def login_user(create_request: CreateUserRequest) -> Dict[str, Union[Dict[str, U
                     user_res.last_login = datetime.now(timezone("Asia/Jakarta"))
                     USER_DB.update_one({"_id": ObjectId(user_res._id)}, {"$set": asdict(user_res)})
                     # Converting the user data to a UserResponse object and encoding it as a JWT access token
-                    user_res = from_dict(data_class=UserResponse, data=asdict(user_res))
-                    user_encode = asdict(user_res)
+                    user_res = UserResponse.from_document(user_res.as_dict())
+                    user_encode = user_res.as_dict()
                     user_encode["exp"] = datetime.utcnow() + timedelta(hours=12)
                     access_token = jwt.encode(
                         user_encode, SECRET_KEY, algorithm="HS256")
@@ -164,6 +176,3 @@ def login_user(create_request: CreateUserRequest) -> Dict[str, Union[Dict[str, U
 
     # Returning the response as a dictionary
     return response.get_response()
-
-
-
