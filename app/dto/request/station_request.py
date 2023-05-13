@@ -8,11 +8,11 @@ from pytz import timezone
 class CreateStationRequest(object):
     key: str
     name: str
-    created_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
-    updated_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
+    created_at: datetime = field(default=datetime.utcnow())
+    updated_at: datetime=field(default = datetime.utcnow())
 
 @dataclass
 class UpdateStationRequest(object):
     key: str
     name: str
-    updated_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
+    updated_at: datetime=field(default=datetime.utcnow())

@@ -22,8 +22,8 @@ class CreateModerationRequest():
     total_frames: int
     status: ModerationStatus = field(default=ModerationStatus.INITIALIZED)
     result: list = field(default_factory=list)
-    created_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
-    updated_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
+    created_at: datetime = field(default=datetime.utcnow())
+    updated_at: datetime = field(default=datetime.utcnow())
 
     def as_dict(self):
         data = self.__dict__.copy()
@@ -39,7 +39,7 @@ class UpdateModerationRequest():
     program_name: str
     station_name: Station
     status: ModerationStatus
-    updated_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
+    updated_at: datetime = field(default=datetime.utcnow())
     result: list = field(default_factory=list)
 
     def as_dict(self):

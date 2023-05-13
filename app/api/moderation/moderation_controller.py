@@ -177,19 +177,17 @@ def moderation_statistic(_):
 
         # If no start date is provided, set it to 30 days ago
         if query_params.get("start_date") is None or query_params.get("start_date") == "":
-            query_params["start_date"] = datetime.now().astimezone(timezone("Asia/Jakarta")) + timedelta(days=-30)
+            query_params["start_date"] = datetime.now() + timedelta(days=-30)
         else:
             # Otherwise, parse the provided start date string into a datetime object
-            query_params["start_date"] = datetime.strptime(
-                query_params["start_date"], '%Y-%m-%d').astimezone(timezone("Asia/Jakarta"))
+            query_params["start_date"] = datetime.strptime(query_params["start_date"], '%Y-%m-%d')
 
         # If no end date is provided, set it to the current date and time
         if query_params.get("end_date") is None or query_params.get("end_date") == "":
-            query_params["end_date"] = datetime.now().astimezone(timezone("Asia/Jakarta"))
+            query_params["end_date"] = datetime.now()
         else:
             # Otherwise, parse the provided end date string into a datetime object
-            query_params["end_date"] = datetime.strptime(query_params["end_date"], '%Y-%m-%d')\
-                .astimezone(timezone("Asia/Jakarta"))
+            query_params["end_date"] = datetime.strptime(query_params["end_date"], '%Y-%m-%d')
 
         # Get the monthly statistics for the provided date range
         all_result, detected_result = get_monthly_statistics(query_params["start_date"], query_params["end_date"])

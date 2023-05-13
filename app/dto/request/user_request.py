@@ -17,5 +17,12 @@ class CreateUserRequest(object):
     password: str
     confirm_password: str
     role: str = field(default="user")
-    last_login: datetime = None
-    created_at: datetime = field(default=datetime.now(timezone("Asia/Jakarta")))
+    last_login: datetime = field(default=None)
+    created_at: datetime = field(default=datetime.utcnow())
+
+@ dataclass
+class UpdateUserRequest:
+    user_id: str = field(default=None)
+    name: str = field(default=None)
+    email: str = field(default=None)
+    role: str = field(default=None)

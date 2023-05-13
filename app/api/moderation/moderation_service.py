@@ -232,9 +232,9 @@ def generate_pdf_report(moderation_id):
     # Generate HTML tags for the moderation's result data
     html_results = generate_html_tags(moderation.result)
 
+    jakarta_time = pytz.timezone("Asia/Jakarta")
     # Replace placeholders in the HTML template with data from the moderation
-    html = html.replace("{{current_date}}", format_datetime(datetime.now(
-        pytz.timezone("Asia/Jakarta")), "d MMMM YYYY", locale="id_ID"))
+    html = html.replace("{{current_date}}", format_datetime(jakarta_time(datetime.utcnow()), "d MMMM YYYY", locale="id_ID"))
     html = html.replace("{{record_date}}", format_datetime(
         moderation.recording_date, "d MMMM YYYY", locale="id_ID"))
     html = html.replace("{{start_time}}", moderation.start_time)

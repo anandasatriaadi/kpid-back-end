@@ -14,16 +14,15 @@ from pytz import timezone
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.api.common.query_utils import clean_query_params, parse_query_params
-from app.dto import (BaseResponse, CreateUserRequest, PaginateResponse, User,
-                     UserResponse)
+from app.dto import (BaseResponse, CreateUserRequest, PaginateResponse,
+                     UpdateUserRequest, User, UserResponse)
 from config import DATABASE, SECRET_KEY
 
 logger = logging.getLogger(__name__)
 USER_DB = DATABASE["users"]
 
+
 # ======== Get users by params ========
-
-
 def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
     """
     A function that fetches users from the database based on the query parameters provided.
@@ -59,7 +58,7 @@ def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
         response.set_response(output, HTTPStatus.OK)
 
     except Exception as err:
-        raise(err)
+        raise (err)
         logger.error(err)
         # Setting the response for internal server error
         response.set_response("Internal server error",
@@ -150,7 +149,7 @@ def login_user(create_request: CreateUserRequest) -> Dict[str, Union[Dict[str, U
                 # Checking if the password provided is correct
                 if check_password_hash(user_res.password, create_request.password):
                     # Updating the last login time of the user
-                    user_res.last_login = datetime.now(timezone("Asia/Jakarta"))
+                    user_res.last_login = datetime.utcnow()
                     USER_DB.update_one({"_id": ObjectId(user_res._id)}, {"$set": asdict(user_res)})
                     # Converting the user data to a UserResponse object and encoding it as a JWT access token
                     user_res = UserResponse.from_document(user_res.as_dict())
@@ -175,4 +174,34 @@ def login_user(create_request: CreateUserRequest) -> Dict[str, Union[Dict[str, U
         response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     # Returning the response as a dictionary
+    return response.get_response()
+
+
+# ======== Update user ========
+def update_user(update_user_request: UpdateUserRequest) -> Dict[str, Union[str, int]]:
+    response = BaseResponse()
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    try:
+        user_res = USER_DB.find_one({"_id": ObjectId(update_user_request.user_id)})
+        if user_res:
+            update_data = {}
+            if update_user_request.name:
+                update_data["name"] = update_user_request.name
+            if update_user_request.email:
+                if re.match(email_pattern, update_user_request.email):
+                    if USER_DB.find_one({"email": update_user_request.email.lower()}):
+                        response.set_response("Email already exists", HTTPStatus.BAD_REQUEST)
+                        return response.get_response()
+                    update_data["email"] = update_user_request.email.lower()
+                else:
+                    response.set_response("Invalid email address", HTTPStatus.BAD_REQUEST)
+                    return response.get_response()
+
+            USER_DB.update_one({"_id": ObjectId(update_user_request.user_id)}, {"$set": update_data})
+            response.set_response("User updated successfully", HTTPStatus.OK)
+        else:
+            response.set_response("User not found", HTTPStatus.NOT_FOUND)
+    except Exception as err:
+        logger.error(err)
+        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
     return response.get_response()

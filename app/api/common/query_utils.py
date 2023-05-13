@@ -110,8 +110,7 @@ def __handle_list_operator(criteria: Dict[str, any], field: str, value: str, ope
 
 def __handle_date_operator(criteria: Dict[str, any], field: str, value: str, operator: str, hour: int, minute: int, second: int):
     try:
-        value = datetime.strptime(value, "%Y-%m-%d").astimezone(
-            timezone("Asia/Jakarta")).replace(hour=hour, minute=minute, second=second)
+        value = datetime.strptime(value, "%Y-%m-%d").replace(hour=hour, minute=minute, second=second)
     except ValueError:
         pass
     criteria[field].append({operator: value})
