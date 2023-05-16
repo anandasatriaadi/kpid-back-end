@@ -8,15 +8,24 @@ from dacite import from_dict
 
 from app.api.common.query_utils import clean_query_params, parse_query_params
 from app.api.common.string_utils import tokenize_string
-from app.dto import (BaseResponse, CreateStationRequest, PaginateResponse,
-                     Station, StationResponse, UpdateStationRequest)
+from app.dto import (
+    BaseResponse,
+    CreateStationRequest,
+    PaginateResponse,
+    Station,
+    StationResponse,
+    UpdateStationRequest,
+)
 from config import DATABASE
 
 logger = logging.getLogger(__name__)
 STATION_DB = DATABASE["stations"]
 
+
 # ======== Get stations by params ========
-def get_station_by_params(query_params: Dict[str, str]) -> Tuple[List[Dict[str, str]], HTTPStatus]:
+def get_station_by_params(
+    query_params: Dict[str, str]
+) -> Tuple[List[Dict[str, str]], HTTPStatus]:
     """
     A function that fetches stations from the database based on the query parameters provided.
 
@@ -31,7 +40,6 @@ def get_station_by_params(query_params: Dict[str, str]) -> Tuple[List[Dict[str, 
 
     try:
         output = []
-        total_elements = STATION_DB.count_documents({})
 
         # Separating the query parameters into query and pagination parameters
         params, pagination = clean_query_params(query_params)
@@ -39,14 +47,27 @@ def get_station_by_params(query_params: Dict[str, str]) -> Tuple[List[Dict[str, 
         # Parsing the query parameters to get the fields to be queried and the sort parameters
         query, sort = parse_query_params(params)
 
+        total_elements = STATION_DB.count_documents(query)
         # Fetching stations based on the query parameters, sorting them, and paginating the results
-        for station in STATION_DB.find(query).sort(sort["field"], sort["direction"]).skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"]):
+        for station in (
+            STATION_DB.find(query)
+            .sort(sort["field"], sort["direction"])
+            .skip(pagination["limit"] * pagination["page"])
+            .limit(pagination["limit"])
+        ):
             # Converting the station data to a StationResponse object and adding it to the output list
-            res = StationResponse.from_document(Station.from_document(station).as_dict())
+            res = StationResponse.from_document(
+                Station.from_document(station).as_dict()
+            )
             output.append(res)
 
         # Setting the metadata for the response
-        response.set_metadata(pagination["page"], pagination["limit"], total_elements, math.ceil(total_elements/pagination["limit"]))
+        response.set_metadata(
+            pagination["page"],
+            pagination["limit"],
+            total_elements,
+            math.ceil(total_elements / pagination["limit"]),
+        )
         response.set_response(output, HTTPStatus.OK)
 
     except Exception as err:
@@ -74,7 +95,7 @@ def create_station(station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
 
     try:
         # Checking if the station already exists in the database
-        name_tokenized = tokenize_string(station_name, True) 
+        name_tokenized = tokenize_string(station_name, True)
         station_res = STATION_DB.find_one({"key": name_tokenized})
         if station_res:
             response.set_response("Station already exists", HTTPStatus.BAD_REQUEST)
@@ -97,7 +118,9 @@ def create_station(station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
     return response.get_response()
 
 
-def update_station(old_key: str, station_name: str) -> Tuple[Dict[str, str], HTTPStatus]:
+def update_station(
+    old_key: str, station_name: str
+) -> Tuple[Dict[str, str], HTTPStatus]:
     """
     A function that updates an existing station in the database with the details provided in the UpdateStationRequest object.
 
@@ -108,7 +131,7 @@ def update_station(old_key: str, station_name: str) -> Tuple[Dict[str, str], HTT
     Returns:
     Tuple[Dict[str, str], HTTPStatus]: A dictionary containing the response message and HTTP status code.
     """
-
+    
     response = BaseResponse()
 
     try:
@@ -119,9 +142,15 @@ def update_station(old_key: str, station_name: str) -> Tuple[Dict[str, str], HTT
 
         if station_res:
             # Update existing station details
-            update_request = UpdateStationRequest(key=new_key_tokenized, name=station_name)
-            res = STATION_DB.update_one({"key": old_key_tokenized}, {"$set": asdict(update_request)})
-            response.set_response(str(res.modified_count) + " station updated", HTTPStatus.OK)
+            update_request = UpdateStationRequest(
+                key=new_key_tokenized, name=station_name
+            )
+            res = STATION_DB.update_one(
+                {"key": old_key_tokenized}, {"$set": asdict(update_request)}
+            )
+            response.set_response(
+                str(res.modified_count) + " station updated", HTTPStatus.OK
+            )
         else:
             response.set_response("Station not found", HTTPStatus.BAD_REQUEST)
 
@@ -132,3 +161,31 @@ def update_station(old_key: str, station_name: str) -> Tuple[Dict[str, str], HTT
 
     # Returning the response as a dictionary
     return response.get_response()
+
+
+def delete_station(
+    key: str,
+) -> Tuple[Dict[str, str], HTTPStatus]:
+    response = BaseResponse()
+
+    try:
+        # Checking if the station exists in the database
+        station_res = STATION_DB.find_one({"key": key})
+
+        if station_res:
+            # Delete the station from the database
+            res = STATION_DB.delete_one({"key": key})
+            response.set_response(
+                str(res.deleted_count) + " station deleted", HTTPStatus.OK
+            )
+        else:
+            response.set_response("Station not found", HTTPStatus.BAD_REQUEST)
+
+    except Exception as err:
+        logger.error(err)
+        # Setting the response for internal server error
+        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    # Returning the response as a dictionary
+    return response.get_response()
+

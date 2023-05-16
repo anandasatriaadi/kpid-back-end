@@ -5,7 +5,7 @@ from app.dto import ModerationDecision
 
 
 @dataclass
-class ModerationResult():
+class ModerationResult:
     second: float
     clip_url: str
     decision: ModerationDecision

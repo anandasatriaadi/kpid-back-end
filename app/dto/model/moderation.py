@@ -10,7 +10,7 @@ from app.dto.model.station import Station
 
 
 @dataclass
-class Moderation():
+class Moderation:
     _id: ObjectId
     user_id: str
     filename: str
@@ -36,9 +36,7 @@ class Moderation():
     @classmethod
     def from_document(cls, document: dict):
         data = document.copy()
-        data['_id'] = str(data['_id'])
-        if isinstance(data['station_name'], dict):
-            data['station_name'] = Station.from_document(
-                data['station_name']
-            ).as_dict()
+        data["_id"] = str(data["_id"])
+        if isinstance(data["station_name"], dict):
+            data["station_name"] = Station.from_document(data["station_name"]).as_dict()
         return cls(**data)

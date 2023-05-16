@@ -5,7 +5,7 @@ from bson import ObjectId
 
 
 @dataclass
-class UserResponse():
+class UserResponse:
     _id: str = field(default=None)
     name: str = field(default=None)
     email: str = field(default=None)

@@ -29,8 +29,9 @@ class ColorizedArgsFormatter(logging.Formatter):
 
     def __init__(self, fmt: str):
         super().__init__()
-        self.level_to_formatter = {level: self._create_formatter(
-            fmt, level) for level in self.level_to_color}
+        self.level_to_formatter = {
+            level: self._create_formatter(fmt, level) for level in self.level_to_color
+        }
 
     def _create_formatter(self, fmt: str, level: int):
         color = self.level_to_color[level]
@@ -45,7 +46,7 @@ class ColorizedArgsFormatter(logging.Formatter):
             return False
 
         msg = record.msg
-        if '%' in msg:
+        if "%" in msg:
             return False
 
         return msg.count("{") == msg.count("}") == len(record.args)
@@ -57,8 +58,9 @@ class ColorizedArgsFormatter(logging.Formatter):
 
         msg = record.msg.replace("{", "{{").replace("}", "}}")
         for index, color in enumerate(ColorizedArgsFormatter.arg_colors, start=1):
-            msg = msg.replace(
-                "{{", f"{color}{{", index).replace("}}", f"}}{ColorCodes.reset}", index)
+            msg = msg.replace("{{", f"{color}{{", index).replace(
+                "}}", f"}}{ColorCodes.reset}", index
+            )
 
         record.msg = msg.format(*record.args)
         record.args = []

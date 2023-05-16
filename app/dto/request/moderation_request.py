@@ -8,7 +8,7 @@ from app.dto.model import Station
 
 
 @dataclass
-class CreateModerationRequest():
+class CreateModerationRequest:
     user_id: str
     filename: str
     program_name: str
@@ -27,14 +27,14 @@ class CreateModerationRequest():
 
     def as_dict(self):
         data = self.__dict__.copy()
-        data['status'] = self.status.value
-        if not isinstance(data['station_name'], dict):
-            data['station_name'] = self.station_name.__dict__
+        data["status"] = self.status.value
+        if not isinstance(data["station_name"], dict):
+            data["station_name"] = self.station_name.__dict__
         return data
 
 
 @dataclass
-class UpdateModerationRequest():
+class UpdateModerationRequest:
     filename: str
     program_name: str
     station_name: Station
@@ -44,5 +44,5 @@ class UpdateModerationRequest():
 
     def as_dict(self):
         data = self.__dict__.copy()
-        data['status'] = self.status.value
+        data["status"] = self.status.value
         return data

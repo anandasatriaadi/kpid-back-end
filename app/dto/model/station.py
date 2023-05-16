@@ -5,7 +5,7 @@ from bson import ObjectId
 
 
 @dataclass
-class Station():
+class Station:
     _id: ObjectId = None
     key: str = None
     name: str = None
@@ -14,7 +14,7 @@ class Station():
 
     def as_dict(self):
         data = self.__dict__.copy()
-        data['_id'] = str(self._id)
+        data["_id"] = str(self._id)
         return data
 
     @classmethod

@@ -5,7 +5,7 @@ from bson import ObjectId
 
 
 @dataclass
-class StationResponse():
+class StationResponse:
     _id: ObjectId = field(default=None)
     key: str = field(default=None)
     name: str = field(default=None)

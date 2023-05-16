@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 @dataclass
-class UploadInfo():
+class UploadInfo:
     user_id: str
     filename: str
     file_ext: str

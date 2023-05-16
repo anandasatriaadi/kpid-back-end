@@ -17,12 +17,15 @@ class CreateUserRequest(object):
     password: str
     confirm_password: str
     role: str = field(default="user")
+    is_active: bool = field(default=True)
     last_login: datetime = field(default=None)
     created_at: datetime = field(default=datetime.utcnow())
 
-@ dataclass
+
+@dataclass
 class UpdateUserRequest:
-    user_id: str = field(default=None)
+    user_id: str
     name: str = field(default=None)
     email: str = field(default=None)
     role: str = field(default=None)
+    is_active: bool = field(default=None)

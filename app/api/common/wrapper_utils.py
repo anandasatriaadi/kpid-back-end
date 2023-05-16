@@ -20,7 +20,7 @@ def token_required(func: Callable) -> Callable:
 
         # Checking if the Authorization header is present in the request headers
         token = request.headers.get("Authorization", "").split("Bearer")[-1].strip()
-        
+
         # If the token is not present, return a 401 Unauthorized response
         if not token:
             response.set_response("Token is missing", 401)
@@ -36,7 +36,9 @@ def token_required(func: Callable) -> Callable:
 
         except (jwt.ExpiredSignatureError, ApplicationException) as err:
             logger.error(str(err))
-            status_code = 401 if isinstance(err, jwt.ExpiredSignatureError) else err.status
+            status_code = (
+                401 if isinstance(err, jwt.ExpiredSignatureError) else err.status
+            )
 
             response.set_response(str(err), status_code)
             return response.get_response()
@@ -44,6 +46,7 @@ def token_required(func: Callable) -> Callable:
         return func(current_user, *args, **kwargs)
 
     return decorated
+
 
 def is_admin(func: Callable) -> Callable:
     @wraps(func)
@@ -54,4 +57,5 @@ def is_admin(func: Callable) -> Callable:
             response.set_response("Access denied. Admin privileges required.", 403)
             return response.get_response()
         return func(current_user, *args, **kwargs)
+
     return decorated

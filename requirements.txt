@@ -1,7 +1,9 @@
+APScheduler==3.10.1
 asgiref==3.6.0
 async-timeout==4.0.2
 autopep8==2.0.2
 Babel==2.12.1
+black==23.3.0
 cachetools==5.3.0
 certifi==2022.12.7
 charset-normalizer==3.1.0
@@ -28,9 +30,13 @@ itsdangerous==2.1.2
 Jinja2==3.1.2
 MarkupSafe==2.1.2
 moviepy==1.0.3
+mypy-extensions==1.0.0
 numpy==1.24.2
+packaging==23.1
+pathspec==0.11.1
 pdfkit==1.0.0
 Pillow==9.4.0
+platformdirs==3.5.1
 proglog==0.1.10
 protobuf==4.22.1
 pyasn1==0.4.8
@@ -46,5 +52,6 @@ rsa==4.9
 six==1.16.0
 tomli==2.0.1
 tqdm==4.65.0
+tzlocal==5.0
 urllib3==1.26.15
 Werkzeug==2.2.2

@@ -4,7 +4,7 @@ from bson import ObjectId
 
 
 @dataclass
-class PasalResponse():
+class PasalResponse:
     _id: ObjectId = field(default=None)
     category: str = field(default=None)
     chapter: str = field(default=None)

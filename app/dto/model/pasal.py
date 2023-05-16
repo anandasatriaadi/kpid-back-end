@@ -13,7 +13,7 @@ class Pasal(object):
 
     def as_dict(self):
         data = self.__dict__.copy()
-        data['_id'] = str(self._id)
+        data["_id"] = str(self._id)
         return data
 
     @classmethod
