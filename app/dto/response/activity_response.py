@@ -1,18 +1,20 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Dict, List
 
 from bson import ObjectId
 
 
 @dataclass
-class PasalResponse:
-    _id: ObjectId = field(default=None)
-    category: str = field(default=None)
-    chapter: str = field(default=None)
-    description: str = field(default=None)
-    pasal: str = field(default=None)
+class ActivityResponse:
+    _id: ObjectId = None
+    date: datetime = None
+    users_count: int = None
+    users: List[Dict[str, str]] = None
 
     def as_dict(self):
         data = self.__dict__.copy()
+        data["_id"] = str(self._id)
         return data
 
     @classmethod

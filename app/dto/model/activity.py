@@ -1,19 +1,18 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Dict, List
 
 from bson import ObjectId
 
 
 @dataclass
-class User:
+class Activity:
     _id: ObjectId = None
-    password: str = None
-    name: str = None
-    email: str = None
-    role: str = None
-    is_active: bool = None
-    last_login: datetime = None
+    date: datetime = None
+    users_count: int = None
+    users: List[Dict[str, str]] = None
     created_at: datetime = None
+    updated_at: datetime = None
 
     def as_dict(self):
         data = self.__dict__.copy()

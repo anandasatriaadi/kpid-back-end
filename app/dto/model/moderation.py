@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List
+from typing import List, Union
 
 from bson import ObjectId
 
@@ -15,7 +15,7 @@ class Moderation:
     user_id: str
     filename: str
     program_name: str
-    station_name: Station | str
+    station_name: Union[Station, str]
     start_time: str
     end_time: str
     fps: int
@@ -39,4 +39,6 @@ class Moderation:
         data["_id"] = str(data["_id"])
         if isinstance(data["station_name"], dict):
             data["station_name"] = Station.from_document(data["station_name"]).as_dict()
-        return cls(**data)
+
+        filtered_data = {k: v for k, v in data.items() if k in cls.__annotations__}
+        return cls(**filtered_data)

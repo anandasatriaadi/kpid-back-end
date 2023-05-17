@@ -2,14 +2,13 @@ import logging
 import math
 import re
 from dataclasses import asdict
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Dict, List, Union
 
 import jwt
 import pytz
 from bson import ObjectId
-from pytz import timezone
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.api.common.query_utils import clean_query_params, parse_query_params
@@ -176,7 +175,7 @@ def login_user(
                     USER_DB.update_one(
                         {"_id": ObjectId(user_res._id)}, {"$set": asdict(user_res)}
                     )
-                    
+
                     # Converting the user data to a UserResponse object and encoding it as a JWT access token
                     user_res = UserResponse.from_document(user_res.as_dict())
                     user_encode = user_res.as_dict()
@@ -268,7 +267,10 @@ def aggregate_user_login():
 
     # Create the aggregation pipeline
     pipeline = [
-        {"$match": {"last_login": {"$gte": start_date, "$lte": end_date}}},
+        {
+            "$match": {"last_login": {"$gte": start_date, "$lte": end_date}},
+            "is_active": True,
+        },
         {
             "$project": {
                 "_id": 0,

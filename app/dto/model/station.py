@@ -19,4 +19,5 @@ class Station:
 
     @classmethod
     def from_document(cls, data: dict):
-        return cls(**data)
+        filtered_data = {k: v for k, v in data.items() if k in cls.__annotations__}
+        return cls(**filtered_data)

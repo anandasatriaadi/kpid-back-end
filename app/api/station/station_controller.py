@@ -57,6 +57,7 @@ def update_existing_station(_):
     # Call the update_station function with the parsed form data and return the response
     return update_station(form_data.get("old_key"), form_data.get("station_name"))
 
+
 # ======== get all stations ========
 @station_bp.route("/stations/<station_key>", methods=["DELETE"])
 @token_required

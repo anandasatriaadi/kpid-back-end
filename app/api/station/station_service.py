@@ -4,8 +4,6 @@ from dataclasses import asdict
 from http import HTTPStatus
 from typing import Dict, List, Tuple
 
-from dacite import from_dict
-
 from app.api.common.query_utils import clean_query_params, parse_query_params
 from app.api.common.string_utils import tokenize_string
 from app.dto import (
@@ -131,7 +129,7 @@ def update_station(
     Returns:
     Tuple[Dict[str, str], HTTPStatus]: A dictionary containing the response message and HTTP status code.
     """
-    
+
     response = BaseResponse()
 
     try:
@@ -188,4 +186,3 @@ def delete_station(
 
     # Returning the response as a dictionary
     return response.get_response()
-

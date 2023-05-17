@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pytz
@@ -7,6 +8,8 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app import app
 from app.api.user.user_service import aggregate_user_login
+
+logger = logging.getLogger()
 
 listen = ["default"]
 
@@ -26,5 +29,10 @@ trigger = CronTrigger.from_crontab(cron_expression, timezone=timezone)
 scheduler.add_job(aggregate_user_login, trigger=trigger)
 scheduler.start()
 
+def start_scheduler():
+    logger.info("Started APScheduler")
+    scheduler.start()
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+    start_scheduler()
+    app.run(host="0.0.0.0")
