@@ -1,4 +1,5 @@
 from app.dto.model.activity import *
+from app.dto.model.frame_result import *
 from app.dto.model.metadata import *
 from app.dto.model.moderation import *
 from app.dto.model.moderation_result import *

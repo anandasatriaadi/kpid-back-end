@@ -6,11 +6,14 @@ def tokenize_string(input_str: str, lower: bool = False) -> str:
     # Split the file name into name and extension
     name, extension = os.path.splitext(input_str)
 
-    # Replace spaces with underscores in the name
-    name_with_underscores = name.replace(" ", "_")
+    # Replace spaces with hypens in the name
+    name_with_hypens = name.replace(r" +", "-")
 
     # Replace non-alphanumeric characters with hyphens in the name
-    tokenized_name = re.sub(r"[^a-zA-Z0-9]", "-", name_with_underscores)
+    tokenized_name = re.sub(r"[^a-zA-Z0-9_]", "-", name_with_hypens)
+
+    # Replace consecutive hyphens with a single hyphen in the name
+    tokenized_name = re.sub(r"-+", "-", tokenized_name)
 
     # Convert to lowercase if specified
     if lower:
@@ -18,8 +21,6 @@ def tokenize_string(input_str: str, lower: bool = False) -> str:
 
     # Remove any leading or trailing hyphens in the name
     tokenized_name = tokenized_name.strip("-")
-
-    print(tokenized_name + (f".{extension}" if extension else ""))
 
     # Rejoin the name and extension with a dot
     return tokenized_name + (f".{extension}" if extension else "")

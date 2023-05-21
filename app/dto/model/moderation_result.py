@@ -6,10 +6,10 @@ from app.dto import ModerationDecision
 
 @dataclass
 class ModerationResult:
-    second: float
-    clip_url: str
-    decision: ModerationDecision
-    category: List[str]
+    second: float = None
+    clip_url: str = None
+    decision: ModerationDecision = None
+    category: List[str] = None
 
     def as_dict(self):
         data = self.__dict__.copy()

@@ -1,3 +1,4 @@
+import logging
 import os
 
 from google.cloud import storage
@@ -14,5 +15,6 @@ GOOGLE_EXTRACT_FRAME_URL = str(os.getenv('GOOGLE_FUNCTION_EXTRACT_FRAME'))
 GOOGLE_MODERATE_FRAME_URL = str(os.getenv('GOOGLE_FUNCTION_MODERATE_FRAME'))
 GOOGLE_MODERATE_AUDIO_URL = str(os.getenv('GOOGLE_FUNCTION_MODERATE_AUDIO'))
 
+USE_GOOGLE_FUNCTIONS = str(os.getenv('APPLICATION_USE_GOOGLE_FUNCTIONS')) == "True"
 SECRET_KEY = str(os.getenv('APPLICATION_SECRET_KEY'))
 UPLOAD_PATH = f"{os.getcwd()}/uploads"

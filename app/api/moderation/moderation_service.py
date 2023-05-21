@@ -5,7 +5,7 @@ import random
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from json import loads
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import ffmpeg
 import pdfkit
@@ -17,14 +17,19 @@ from flask import request
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from rq import Queue
 
+from ai_utils.detect import detect_objects
+from ai_utils.extract import keyframe_detection
+from app.api.common.gcloud_utils import download_files_gcloud, upload_to_gcloud
 from app.api.common.query_utils import clean_query_params, parse_query_params
 from app.api.common.string_utils import tokenize_string
 from app.api.exceptions import ApplicationException
 from app.api.station.station_service import create_station
 from app.dto import (
     CreateModerationRequest,
+    Moderation,
     ModerationDecision,
     ModerationResponse,
+    ModerationResult,
     ModerationStatus,
     PaginateResponse,
     Station,
@@ -36,6 +41,7 @@ from config import (
     GOOGLE_EXTRACT_FRAME_URL,
     GOOGLE_STORAGE_CLIENT,
     UPLOAD_PATH,
+    USE_GOOGLE_FUNCTIONS,
 )
 from redis_worker import conn
 
@@ -154,7 +160,7 @@ def start_moderation(object_id: str):
         raise ApplicationException("Moderation not found", HTTPStatus.NOT_FOUND)
 
     # If the moderation is not in the required status, raise a 400 exception
-    if moderation.status != str(ModerationStatus.UPLOADED):
+    if moderation.status != str(ModerationStatus.UPLOADED) and moderation.status != str(ModerationStatus.IN_PROGRESS):
         raise ApplicationException(
             "Moderation is not in required status", HTTPStatus.BAD_REQUEST
         )
@@ -376,14 +382,24 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
 
 # ======== extract frames from the uploaded video and upload them to Google Cloud Storage ========
 def extract_frames(upload_info: UploadInfo, metadata):
+    video_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
     payload = {
         "filename": upload_info.file_with_ext,
-        "video_path": f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}",
+        "video_path": video_path,
         "user_id": upload_info.user_id,
     }
-    req_response = requests.post(GOOGLE_EXTRACT_FRAME_URL, payload)
-    logger.error(str(req_response.json()))
-    frame_results = loads(str(req_response.json()).replace("'", '"'))
+
+    logger.error(USE_GOOGLE_FUNCTIONS)
+    if USE_GOOGLE_FUNCTIONS:
+        req_response = requests.post(GOOGLE_EXTRACT_FRAME_URL, payload)
+        logger.error(str(req_response.json()))
+        frame_results = loads(str(req_response.json()).replace("'", '"'))
+    else:
+        bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
+        source_blob = bucket.get_blob(video_path)
+        req_response = keyframe_detection(
+            upload_info.user_id, upload_info.file_with_ext, source_blob, bucket, 0.4
+        )
 
     # Update the moderation in the database to reference the uploaded frames and set its status to UPLOADED
     MODERATION_DB.update_one(
@@ -396,70 +412,68 @@ def extract_frames(upload_info: UploadInfo, metadata):
 
 # ! ======== temp ::: cut video and upload to gcs ========
 def cut_video(upload_info: UploadInfo, metadata):
-    total_duration = float(metadata[0]["duration"])
-    timestamp = total_duration / 3
-
-    # check if the file exists in the local directory
-    if not os.path.exists(upload_info.save_path):
-        # if the file does not exist, download it from GCP bucket
-        blob_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
-        bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
-        blob = bucket.blob(blob_path)
-        blob.download_to_filename(upload_info.save_path)
-
-    save_path = os.path.join(UPLOAD_PATH, upload_info.filename)
-    for i in range(1, 4):
-        start_time = max(0, int((timestamp * i) - 2))
-        end_time = min(total_duration, int((timestamp * i) + 2))
-        ffmpeg_extract_subclip(
-            upload_info.save_path,
-            start_time,
-            end_time,
-            targetname=f"{save_path}_{i}.{upload_info.file_ext}",
-        )
-
-    temp_videos = []
-    videos_to_delete = []
-    for i in range(1, 4):
-        category = ["SARA", "SARU", "SADIS", "SIHIR", "SIARAN_PARTISAN"]
-        category.pop(math.floor(random.random() * len(category)))
-        category.pop(math.floor(random.random() * len(category)))
-        category.pop(math.floor(random.random() * len(category)))
-        save_path = os.path.join(
-            UPLOAD_PATH, f"{upload_info.filename}_{i}.{upload_info.file_ext}"
-        )
-        videos_to_delete.append(save_path)
-        bucket_path = f"moderation/{upload_info.user_id}/{upload_info.filename}/videos/{upload_info.user_id}_{upload_info.filename}_{i}.{upload_info.file_ext}"
-        temp_videos.append(
-            {
-                "second": timestamp * i,
-                "clip_url": bucket_path,
-                "decision": str(ModerationDecision.PENDING),
-                "category": category,
-            }
-        )
-        upload_to_gcloud(bucket_path, save_path)
-
-    for video in videos_to_delete:
-        os.remove(video)
-
-    MODERATION_DB.update_one(
-        {"_id": ObjectId(upload_info.saved_id)},
-        {"$set": {"result": temp_videos, "status": str(ModerationStatus.REJECTED)}},
-    )
-
-    logger.info("Videos uploaded to gcloud")
-
-
-# ======== main method to upload to gcs ========
-def upload_to_gcloud(destination, source):
+    initial_data = MODERATION_DB.find_one({"_id": ObjectId(upload_info.saved_id)})
     try:
-        bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
-        user_blob = bucket.blob(destination)
-        user_blob.upload_from_filename(source)
-        user_blob.make_public()
-    except (TimeoutError, ApplicationException) as err:
-        logger.error(err)
+        total_duration = float(metadata[0]["duration"])
+
+        # TODO Download all frame files before detecting the frames using Model
+        moderation_data = Moderation.from_document(initial_data)
+        frame_urls = [item["frame_url"] for item in moderation_data.frames]
+        download_files_gcloud(UPLOAD_PATH, frame_urls)
+
+        # TODO Detect the frames using Model
+        detected_frames = detect_objects(moderation_data.frames)
+
+        # Check if the file exists in the local directory
+        if not os.path.exists(upload_info.save_path):
+            # if the file does not exist, download it from GCP bucket
+            blob_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
+            download_files_gcloud(UPLOAD_PATH, [blob_path])
+
+        # TODO Cut video from detected frames
+
+        videos_to_delete = []
+        clipped_video_save_path = os.path.join(UPLOAD_PATH, upload_info.filename)
+        for idx, detected in enumerate(detected_frames):
+            start_time = max(0, float(detected.second - 2.5))
+            end_time = min(total_duration, float(detected.second + 2.5))
+            ffmpeg_extract_subclip(
+                upload_info.save_path,
+                start_time,
+                end_time,
+                targetname=f"{clipped_video_save_path}_{idx}.{upload_info.file_ext}",
+            )
+
+        for idx, detected in enumerate(detected_frames):
+            videos_to_delete.append(
+                f"{clipped_video_save_path}_{idx}.{upload_info.file_ext}"
+            )
+            bucket_path = f"moderation/{upload_info.user_id}/{upload_info.filename}/videos/{upload_info.user_id}_{upload_info.filename}_{idx}.{upload_info.file_ext}"
+            detected.clip_url = bucket_path
+            upload_to_gcloud(
+                bucket_path, f"{clipped_video_save_path}_{idx}.{upload_info.file_ext}"
+            )
+
+        parsed_result = [item.as_dict() for item in detected_frames]
+
+        # Delete Images and Videos
+        for frame in moderation_data.frames:
+            os.remove(f"{UPLOAD_PATH}/{frame['frame_url'].split('/')[-1]}")
+        for video in videos_to_delete:
+            os.remove(video)
+
+        MODERATION_DB.update_one(
+            {"_id": ObjectId(upload_info.saved_id)},
+            {"$set": {"result": parsed_result, "status": str(ModerationStatus.REJECTED)}},
+        )
+
+        logger.info("Videos uploaded to gcloud")
+    except Exception as e:
+        logger.error(e)
+        MODERATION_DB.update_one(
+            {"_id": ObjectId(upload_info.saved_id)},
+            {"$set": initial_data},
+        )
 
 
 # ======== generate HTML tags to display the moderation result in a PDF report ========

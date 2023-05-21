@@ -5,6 +5,7 @@ from typing import List, Union
 from bson import ObjectId
 
 from app.dto.enum.moderation_status import ModerationStatus
+from app.dto.model.frame_result import FrameResult
 from app.dto.model.moderation_result import ModerationResult
 from app.dto.model.station import Station
 
@@ -27,11 +28,15 @@ class Moderation:
     created_at: datetime = field(default=None)
     updated_at: datetime = field(default=None)
     result: List[ModerationResult] = field(default=None)
-    frames: list = field(default=None)
-    videos: list = field(default=None)
+    frames: List[FrameResult] = field(default=None)
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+
+    def as_dict(self):
+        data = self.__dict__.copy()
+        data["_id"] = str(self._id)
+        return data
 
     @classmethod
     def from_document(cls, document: dict):

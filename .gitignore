@@ -1,5 +1,7 @@
 __pycache__
 venv
+ai_utils/models
+ai_utils/saved_model
 uploads
 secrets
 .env.dev

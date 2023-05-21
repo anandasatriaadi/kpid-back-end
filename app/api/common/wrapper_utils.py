@@ -34,10 +34,10 @@ def token_required(func: Callable) -> Callable:
             if not current_user:
                 raise ApplicationException("User not found", HTTPStatus.UNAUTHORIZED)
 
-        except (jwt.ExpiredSignatureError, ApplicationException) as err:
+        except (jwt.PyJWTError, ApplicationException) as err:
             logger.error(str(err))
             status_code = (
-                401 if isinstance(err, jwt.ExpiredSignatureError) else err.status
+                401 if isinstance(err, jwt.PyJWTError) else err.status
             )
 
             response.set_response(str(err), status_code)
