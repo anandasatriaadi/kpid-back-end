@@ -17,7 +17,6 @@ services:
 
   redis-worker:
     container_name: kpid-redis-worker
-    build: ./
     image: kpid-back-end
     command: python redis_worker.py
     volumes:
@@ -28,6 +27,7 @@ services:
       - redis
     depends_on:
       - redis
+      - back-end
 
   redis:
     container_name: kpid-redis

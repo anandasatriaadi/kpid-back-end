@@ -1,3 +1,5 @@
 venv
 uploads
+secrets
 ai_utils/models
+ai_utils/saved_model
