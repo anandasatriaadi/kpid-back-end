@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from datetime import datetime
 
 
 @dataclass
@@ -8,5 +7,6 @@ class UploadInfo:
     filename: str
     file_ext: str
     file_with_ext: str
-    save_path: str
-    saved_id: str = field(init=False)
+    video_save_path: str
+    audio_save_path: str = field(default=None)
+    saved_id: str = field(default=None)

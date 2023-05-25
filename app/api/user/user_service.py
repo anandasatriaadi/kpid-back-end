@@ -4,7 +4,7 @@ import re
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 
 import jwt
 import pytz
@@ -12,12 +12,12 @@ from bson import ObjectId
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.api.common.query_utils import clean_query_params, parse_query_params
+from app.api.exceptions import ApplicationException
 from app.dto import (
-    BaseResponse,
     CreateActivityRequest,
     CreateUserRequest,
     LoginUserRequest,
-    PaginateResponse,
+    Metadata,
     UpdateUserRequest,
     User,
     UserResponse,
@@ -29,8 +29,10 @@ USER_DB = DATABASE["users"]
 ACTIVITY_DB = DATABASE["activity"]
 
 
-# ======== Get users by params ========
-def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
+# Get users by params
+def get_user_by_params(
+    query_params: Dict[str, str]
+) -> Tuple[List[UserResponse], Metadata]:
     """
     A function that fetches users from the database based on the query parameters provided.
 
@@ -38,52 +40,41 @@ def get_user_by_params(query_params: Dict[str, str]) -> List[Dict[str, str]]:
     query_params (Dict[str, str]): A dictionary of query parameters.
 
     Returns:
-    List[Dict[str, str]]: A list containing dictionaries of users' details.
+    Tuple[List[UserResponse], Metadata]: A list containing dictionaries of users' details.
     """
 
-    response = PaginateResponse()
+    output = []
 
-    try:
-        output = []
+    # Separating the query parameters into query and pagination parameters
+    params, pagination = clean_query_params(query_params)
+    query, sort = parse_query_params(params)
 
-        # Separating the query parameters into query and pagination parameters
-        params, pagination = clean_query_params(query_params)
-
-        # Parsing the query parameters to get the fields to be queried and the sort parameters
-        query, sort = parse_query_params(params)
-
-        total_elements = USER_DB.count_documents(query)
-        # Fetching users based on the query parameters, sorting them, and paginating the results
-        for user in (
-            USER_DB.find(query)
-            .sort(sort["field"], sort["direction"])
-            .skip(pagination["limit"] * pagination["page"])
-            .limit(pagination["limit"])
-        ):
-            # Converting the user data to a UserResponse object and adding it to the output list
-            res = UserResponse.from_document(User.from_document(user).as_dict())
-            output.append(res)
-
-        # Setting the metadata for the response
-        response.set_metadata(
-            pagination["page"],
-            pagination["limit"],
-            total_elements,
-            math.ceil(total_elements / pagination["limit"]),
+    total_elements = USER_DB.count_documents(query)
+    # Fetching users based on the query parameters, sorting them, and paginating the results
+    results = USER_DB.find(query)
+    if len(sort) > 0:
+        results = results.sort(sort["field"], sort["direction"])
+    if len(pagination) > 0:
+        results = results.skip(pagination["limit"] * pagination["page"]).limit(
+            pagination["limit"]
         )
-        response.set_response(output, HTTPStatus.OK)
 
-    except Exception as err:
-        logger.error(err)
-        # Setting the response for internal server error
-        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+    for user in results:
+        res = UserResponse.from_document(User.from_document(user).as_dict())
+        output.append(res)
 
-    # Returning the response as a list of user dictionaries
-    return response.get_response()
+    # Setting the metadata for the response
+    metadata = Metadata(
+        pagination["page"],
+        pagination["limit"],
+        total_elements,
+        math.ceil(total_elements / pagination["limit"]),
+    )
+    return output, metadata
 
 
-# ======== POST : create user ========
-def signup_user(create_request: CreateUserRequest) -> Dict[str, Union[str, int]]:
+# POST : create user
+def signup_user(create_request: CreateUserRequest) -> bool:
     """
     A function that creates a new user in the database with the details provided in the CreateUserRequest object.
 
@@ -91,57 +82,48 @@ def signup_user(create_request: CreateUserRequest) -> Dict[str, Union[str, int]]
     create_request (CreateUserRequest): An object containing the details of the user to be created.
 
     Returns:
-    Dict[str, Union[str, int]]: A dictionary containing the response message and HTTP status code.
+    bool: A dictionary containing the response message and HTTP status code.
     """
-
-    response = BaseResponse()
     email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     password_pattern = r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$"
 
-    try:
-        # Checking if the email address provided is valid
-        if not re.match(email_pattern, create_request.email):
-            response.set_response("Invalid email address", HTTPStatus.BAD_REQUEST)
-        # Checking if the password meets the requirements
-        elif not re.match(password_pattern, create_request.password):
-            response.set_response(
-                "Password must be at least 8 characters long and contain both letters and numbers.",
-                HTTPStatus.BAD_REQUEST,
-            )
-        # Checking if the passwords match
-        elif create_request.password != create_request.confirm_password:
-            response.set_response("Passwords do not match!", HTTPStatus.BAD_REQUEST)
+    # Checking if the email address provided is valid
+    if not re.match(email_pattern, create_request.email):
+        raise ApplicationException("Invalid email address", HTTPStatus.BAD_REQUEST)
+    # Checking if the password meets the requirements
+    elif not re.match(password_pattern, create_request.password):
+        raise ApplicationException(
+            "Password must be at least 8 characters long and contain both letters and numbers.",
+            HTTPStatus.BAD_REQUEST,
+        )
+    # Checking if the passwords match
+    elif create_request.password != create_request.confirm_password:
+        raise ApplicationException("Passwords do not match!", HTTPStatus.BAD_REQUEST)
+    else:
+        # Checking if the user already exists in the database
+        user_res = USER_DB.find_one({"email": create_request.email.lower()})
+        if user_res:
+            raise ApplicationException("User already exists", HTTPStatus.BAD_REQUEST)
         else:
-            # Checking if the user already exists in the database
-            user_res = USER_DB.find_one({"email": create_request.email.lower()})
-            if user_res:
-                response.set_response("User already exists", HTTPStatus.BAD_REQUEST)
-            else:
-                # Generating a hashed password for the new user
-                hashed_password = generate_password_hash(
-                    create_request.password, "sha256", 24
-                )
-                create_request.password = hashed_password
+            # Generating a hashed password for the new user
+            hashed_password = generate_password_hash(
+                create_request.password, "sha256", 24
+            )
+            create_request.password = hashed_password
 
-                create_request_dict = asdict(create_request)
-                create_request_dict.pop("confirm_password")
-                # Inserting the new user details into the database
-                USER_DB.insert_one(create_request_dict)
+            create_request_dict = asdict(create_request)
+            create_request_dict.pop("confirm_password")
+            # Inserting the new user details into the database
+            USER_DB.insert_one(create_request_dict)
 
-                # Setting the response for successful user creation
-                response.set_response("User created successfully", HTTPStatus.CREATED)
-
-    except Exception as err:
-        response.set_response("An error occurred", HTTPStatus.INTERNAL_SERVER_ERROR)
-
-    # Returning the response as a dictionary
-    return response.get_response()
+            # Setting the response for successful user creation
+            return True
 
 
-# ======== POST : login user ========
+# POST : login user
 def login_user(
     login_request: LoginUserRequest,
-) -> Dict[str, Union[Dict[str, Union[str, datetime]], str, int]]:
+) -> Dict[str, any]:
     """
     A function that logs in a user with the email address and password provided in the LoginUserRequest object.
 
@@ -152,173 +134,151 @@ def login_user(
     Dict[str, Union[Dict[str, Union[str, datetime]], str, int]]: A dictionary containing the access token and user data, if login is successful, or an error message and HTTP status code, if not.
     """
 
-    response = BaseResponse()
     email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 
-    try:
-        # Checking if the email address provided is valid
-        if not re.match(email_pattern, login_request.email):
-            response.set_response("Invalid email address", HTTPStatus.BAD_REQUEST)
-        else:
-            # Checking if a user with the provided email address exists in the database
-            user_res = USER_DB.find_one({"email": login_request.email.casefold()})
-            if user_res is not None:
-                user_res = User.from_document(user_res)
-                # Checking if the password provided is correct
-                if not user_res.is_active:
-                    response.set_response(
-                        "Unable to login. User is deactivated.", HTTPStatus.BAD_REQUEST
-                    )
-                elif check_password_hash(user_res.password, login_request.password):
-                    # Updating the last login time of the user
-                    user_res.last_login = datetime.utcnow()
-                    USER_DB.update_one(
-                        {"_id": ObjectId(user_res._id)}, {"$set": asdict(user_res)}
-                    )
-
-                    # Converting the user data to a UserResponse object and encoding it as a JWT access token
-                    user_res = UserResponse.from_document(user_res.as_dict())
-                    user_encode = user_res.as_dict()
-                    user_encode["exp"] = datetime.utcnow() + timedelta(hours=12)
-                    access_token = jwt.encode(
-                        user_encode, SECRET_KEY, algorithm="HS256"
-                    )
-
-                    # Setting the response with the access token and user data
-                    response.set_response(
-                        {"token": access_token, "user_data": user_res}, HTTPStatus.OK
-                    )
-                else:
-                    # Setting the response for incorrect password
-                    response.set_response(
-                        "Invalid email and password", HTTPStatus.BAD_REQUEST
-                    )
-            else:
-                # Setting the response for no user found with the provided email address
-                response.set_response("No email found", HTTPStatus.NOT_FOUND)
-    except Exception as err:
-        logger.error(err)
-        # Setting the response for internal server error
-        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
-
-    # Returning the response as a dictionary
-    return response.get_response()
-
-
-# ======== Update user ========
-def update_user(update_user_request: UpdateUserRequest) -> Dict[str, Union[str, int]]:
-    response = BaseResponse()
-    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    try:
-        user_res = USER_DB.find_one({"_id": ObjectId(update_user_request.user_id)})
+    # Checking if the email address provided is valid
+    if not re.match(email_pattern, login_request.email):
+        raise ApplicationException("Invalid email address", HTTPStatus.BAD_REQUEST)
+    else:
+        # Checking if a user with the provided email address exists in the database
+        user_res = USER_DB.find_one({"email": login_request.email.casefold()})
         if user_res is not None:
-            update_data = {}
+            user_res = User.from_document(user_res)
+            # Checking if the password provided is correct
+            if not user_res.is_active:
+                raise ApplicationException(
+                    "Unable to login. User is deactivated.", HTTPStatus.BAD_REQUEST
+                )
+            elif check_password_hash(user_res.password, login_request.password):
+                # Updating the last login time of the user
+                user_res.last_login = datetime.utcnow()
+                USER_DB.update_one(
+                    {"_id": ObjectId(user_res._id)}, {"$set": asdict(user_res)}
+                )
 
-            # Checking through all properties to make sure that no data is change to None or null on update
-            if update_user_request.name is not None:
-                update_data["name"] = update_user_request.name
+                # Converting the user data to a UserResponse object and encoding it as a JWT access token
+                user_res = UserResponse.from_document(user_res.as_dict())
+                user_encode = user_res.as_dict()
+                user_encode["exp"] = datetime.utcnow() + timedelta(hours=12)
+                access_token = jwt.encode(user_encode, SECRET_KEY, algorithm="HS256")
 
-            if (
-                user_res["email"] != update_user_request.email
-                and update_user_request.email is not None
-            ):
-                if re.match(email_pattern, update_user_request.email):
-                    if USER_DB.find_one({"email": update_user_request.email.lower()}):
-                        response.set_response(
-                            "Email already exists", HTTPStatus.BAD_REQUEST
-                        )
-                        return response.get_response()
-                    update_data["email"] = update_user_request.email.lower()
-                else:
-                    response.set_response(
-                        "Invalid email address", HTTPStatus.BAD_REQUEST
-                    )
-                    return response.get_response()
-
-            if update_user_request.role is not None:
-                update_data["role"] = update_user_request.role
-
-            if update_user_request.is_active is not None:
-                update_data["is_active"] = update_user_request.is_active
-
-            USER_DB.update_one(
-                {"_id": ObjectId(update_user_request.user_id)}, {"$set": update_data}
-            )
-            response.set_response("User updated successfully", HTTPStatus.OK)
+                # Setting the response with the access token and user data
+                result = {"token": access_token, "user_data": user_res}
+                return result
+            else:
+                # Setting the response for incorrect password
+                raise ApplicationException(
+                    "Invalid email and password", HTTPStatus.BAD_REQUEST
+                )
         else:
-            response.set_response("User not found", HTTPStatus.NOT_FOUND)
-    except Exception as err:
-        logger.error(err)
-        response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
-    return response.get_response()
+            raise ApplicationException("No email found", HTTPStatus.NOT_FOUND)
 
 
-# ======== aggregate user login ========
-def aggregate_user_login():
-    response = BaseResponse()
+# Update user
+def update_user(update_user_request: UpdateUserRequest) -> bool:
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 
-    today = datetime.now()
-    start_date = today.replace(hour=0, minute=0, second=0).astimezone(
-        pytz.timezone("Asia/Jakarta")
-    )
-    end_date = today.replace(hour=23, minute=59, second=59).astimezone(
-        pytz.timezone("Asia/Jakarta")
-    )
+    user_res = USER_DB.find_one({"_id": ObjectId(update_user_request.user_id)})
+    if user_res is not None:
+        update_data = {}
 
-    # Create the aggregation pipeline
-    pipeline = [
-        {
-            "$match": {"last_login": {"$gte": start_date, "$lte": end_date}},
-            "is_active": True,
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "name": 1,
-                "email": 1,
-                "last_login": {
-                    "$dateToString": {
-                        "format": "%Y-%m-%d",
-                        "date": {
-                            "$dateAdd": {
-                                "startDate": "$last_login",
-                                "unit": "hour",
-                                "amount": 8,
-                            }
-                        },
-                    }
-                },
-            }
-        },
-        {
-            "$group": {
-                "_id": "$last_login",
-                "count": {"$sum": 1},
-                "users": {"$push": {"name": "$name", "email": "$email"}},
-            }
-        },
-        {"$sort": {"_id": 1}},
-    ]
+        # Checking through all properties to make sure that no data is change to None or null on update
+        if update_user_request.name is not None:
+            update_data["name"] = update_user_request.name
 
-    # Execute the aggregation query
-    result = USER_DB.aggregate(pipeline)
+        if (
+            update_user_request.email is not None
+            and user_res["email"] != update_user_request.email
+        ):
+            logger.debug(f"{user_res['email']} {update_user_request.email}")
+            if re.match(email_pattern, update_user_request.email):
+                if USER_DB.find_one({"email": update_user_request.email.lower()}):
+                    raise ApplicationException("Email already exists", HTTPStatus.BAD_REQUEST)
+                update_data["email"] = update_user_request.email.lower()
+            else:
+                raise ApplicationException("Invalid email address", HTTPStatus.BAD_REQUEST)
 
-    documents = list(result)
-    response.set_response(documents, HTTPStatus.OK)
+        if update_user_request.role is not None:
+            update_data["role"] = update_user_request.role
 
-    # Insert the result into ACTIVITY_DB
-    for doc in documents:
-        # Convert _id to datetime and set the time to 23:59:59
-        date_string = doc["_id"]
-        date = datetime.strptime(date_string, "%Y-%m-%d")
-        end_of_day = date.replace(hour=23, minute=59, second=59).astimezone(
+        if update_user_request.is_active is not None:
+            update_data["is_active"] = update_user_request.is_active
+
+        USER_DB.update_one(
+            {"_id": ObjectId(update_user_request.user_id)}, {"$set": update_data}
+        )
+        return True
+    else:
+        raise ApplicationException("User not found", HTTPStatus.NOT_FOUND)
+
+
+# aggregate user login
+def aggregate_user_login() -> bool:
+    try:
+        today = datetime.now()
+        start_date = today.replace(hour=0, minute=0, second=0).astimezone(
+            pytz.timezone("Asia/Jakarta")
+        )
+        end_date = today.replace(hour=23, minute=59, second=59).astimezone(
             pytz.timezone("Asia/Jakarta")
         )
 
-        # Set the modified _id and insert the document
-        data = CreateActivityRequest(
-            date=end_of_day, users_count=doc["count"], users=doc["users"]
-        )
-        ACTIVITY_DB.insert_one(asdict(data))
+        # Create the aggregation pipeline
+        pipeline = [
+            {
+                "$match": {"last_login": {"$gte": start_date, "$lte": end_date}},
+                "is_active": True,
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "name": 1,
+                    "email": 1,
+                    "last_login": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": {
+                                "$dateAdd": {
+                                    "startDate": "$last_login",
+                                    "unit": "hour",
+                                    "amount": 8,
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$last_login",
+                    "count": {"$sum": 1},
+                    "users": {"$push": {"name": "$name", "email": "$email"}},
+                }
+            },
+            {"$sort": {"_id": 1}},
+        ]
 
-    return response.get_response()
+        # Execute the aggregation query
+        result = USER_DB.aggregate(pipeline)
+
+        documents = list(result)
+
+        # Insert the result into ACTIVITY_DB
+        for doc in documents:
+            # Convert _id to datetime and set the time to 23:59:59
+            date_string = doc["_id"]
+            date = datetime.strptime(date_string, "%Y-%m-%d")
+            end_of_day = date.replace(hour=23, minute=59, second=59).astimezone(
+                pytz.timezone("Asia/Jakarta")
+            )
+
+            # Set the modified _id and insert the document
+            data = CreateActivityRequest(
+                date=end_of_day, users_count=doc["count"], users=doc["users"]
+            )
+            ACTIVITY_DB.insert_one(asdict(data))
+
+        return True
+    except Exception as err:
+        logger.error(err)
+        return False

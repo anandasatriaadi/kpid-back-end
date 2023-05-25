@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 activity_bp = Blueprint("activity", __name__)
 
 
-# ======== get all activities ========
+# get all activities
 @activity_bp.route("/activity", methods=["GET"])
 @token_required
 def get_all_activities(_):
@@ -24,19 +24,18 @@ def get_all_activities(_):
         query_params["page"] = request.args.get("page", default=0, type=int)
         query_params["limit"] = request.args.get("limit", default=9999, type=int)
         query_params["sort"] = request.args.get("sort", default="created_at,ASC")
-        logger.error(query_params)
 
         # Get the monthly statistics for the provided date range
-        result, metadata = get_activity_by_params(query_params)
-
-        # Set the response data to be the monthly statistics
+        result, _ = get_activity_by_params(query_params)
         response.set_response(result, HTTPStatus.OK)
 
-    except ApplicationException as err:
-        raise (err)
-        # Log any application exceptions and set the response data to be the exception message and status
+    except (Exception, ApplicationException) as err:
         logger.error(str(err))
-        response.set_response(str(err), err.status)
+
+        if isinstance(err, ApplicationException):
+            response.set_response(str(err), err.status)
+        else:
+            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     # Return the response data
     return response.get_response()

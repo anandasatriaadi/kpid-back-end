@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 ACTIVITY_DB = DATABASE["activity"]
 
 
-# ======== Get stations by params ========
+# Get stations by params
 def get_activity_by_params(
     query_params: Dict[str, str]
 ) -> Tuple[List[ActivityResponse], Metadata]:
@@ -27,27 +27,25 @@ def get_activity_by_params(
     """
 
     try:
-        output = []
-
-        # Separating the query parameters into query and pagination parameters
+        # Clean the query parameters and parse them into query and pagination parameters
         params, pagination = clean_query_params(query_params)
-
-        # Parsing the query parameters to get the fields to be queried and the sort parameters
         query, sort = parse_query_params(params)
 
         total_elements = ACTIVITY_DB.count_documents(query)
-        # Fetching stations based on the query parameters, sorting them, and paginating the results
-        for station in (
-            ACTIVITY_DB.find(query)
-            .sort(sort["field"], sort["direction"])
-            .skip(pagination["limit"] * pagination["page"])
-            .limit(pagination["limit"])
-        ):
-            # Converting the station data to a StationResponse object and adding it to the output list
-            res = ActivityResponse.from_document(
-                Activity.from_document(station).as_dict()
+        results = ACTIVITY_DB.find(query)
+        if len(sort) > 0:
+            results = results.sort(sort["field"], sort["direction"])
+        if len(pagination) > 0:
+            results = results.skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"])
+
+        output: List[ActivityResponse] = []
+        # Converting the activity data to a ActivityResponse object
+        for activity in results:
+            output.append(
+                ActivityResponse.from_document(
+                    Activity.from_document(activity).as_dict()
+                )
             )
-            output.append(res)
 
         # Setting the metadata for the response
         metadata = Metadata(
@@ -60,7 +58,6 @@ def get_activity_by_params(
         return output, metadata
 
     except Exception as err:
-        raise (err)
         logger.error(err)
         # Setting the response for internal server error
         raise ApplicationException(

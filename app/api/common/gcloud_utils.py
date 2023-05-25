@@ -6,23 +6,38 @@ from config import GOOGLE_BUCKET_NAME, GOOGLE_STORAGE_CLIENT
 
 logger = logging.getLogger(__name__)
 
-# ======== main method to upload to gcs ========
-def upload_to_gcloud(destination: str, source: str):
+# main method to upload to gcs
+def upload_to_gcloud(remote_dest: str, local_source: str):
     try:
         bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
-        file_blob = bucket.blob(destination)
-        file_blob.upload_from_filename(source)
+        file_blob = bucket.blob(remote_dest)
+        file_blob.upload_from_filename(local_source)
         file_blob.make_public()
-    except (TimeoutError, ApplicationException) as err:
+    except Exception as err:
         logger.error(err)
 
-# ======== main method to downloads from gcs ========
-def download_files_gcloud(destination: str, source: List[str]):
+# main method to downloads from gcs
+def download_files_gcloud(local_dest: str, source: List[str]):
     try:
         bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
         for file in source:
             file_blob = bucket.blob(file)
             filename = file.split("/")[-1]
-            file_blob.download_to_filename(f"{destination}/{filename}")
-    except (TimeoutError, ApplicationException) as err:
+            file_blob.download_to_filename(f"{local_dest}/{filename}")
+    except Exception as err:
         logger.error(err)
+
+def delete_file_gcloud(remote_blob_name):
+    try:
+        bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
+        blob = bucket.blob(remote_blob_name)
+        generation_match_precondition = None
+
+        blob.reload()  # Fetch blob metadata to use in generation_match_precondition.
+        generation_match_precondition = blob.generation
+
+        blob.delete(if_generation_match=generation_match_precondition)
+
+        print(f"Blob {remote_blob_name} deleted.")
+    except Exception as err:
+            logger.error(err)

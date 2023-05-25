@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <style>
+    * {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      line-height: 1.25;
+    }
+    body {
+      margin: 0 4rem;
+    }
+    .kop-table {
+      width: 100%;
+      margin: auto;
+    }
+    .violations > li {
+      margin-bottom: 0.5rem;
+    }
+    .violations > li > a {
+      display: inline-block;
+      color: #0369a1;
+      font-weight: 400;
+      padding: 0.1rem 0.4rem;
+      margin-bottom: 0.15rem;
+      text-decoration: none;
+      background-color: #e0f2fe;
+      border-radius: 2rem;
+    }
+    .steps-item {
+      margin-bottom: 0.5rem;
+      text-align: justify;
+    }
+    tr > td {
+      padding: 0;
+    }
+  </style>
+  <body>
+    <header>
+      <table class="kop-table">
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center">
+              <img
+                src="http://kpidjatim.id/wp-content/uploads/2019/03/logo_kpid_jatim.jpg"
+                alt="KPID Jawa Timur"
+                style="height: auto; display: block; margin: auto 0; width: 200px"
+              />
+            </div>
+          </td>
+          <td style="text-align: center; padding-left: 1rem; width: 100%;">
+            <h1 style="font-size: 1rem; margin: 0.5rem 0">
+              Komisi Penyiaran Indonesia Daerah (KPID) Jawa Timur
+            </h1>
+            <p style="margin: 0.25rem">
+              Jl. Ngagel Timur. No.52-54, Gubeng, Surabaya, Jawa Timur, 60283
+            </p>
+            <p style="margin: 0.25rem">Telp: (031) 5024561</p>
+          </td>
+        </tr>
+      </table>
+    </header>
+    <hr style="margin: 0.5rem 0 1.5rem" />
+    <div>
+      <!-- Surat Peringatan Pelanggaran Penyiaran No. {{letter_no}} -->
+      <table style="width: 100%">
+        <tr>
+          <td>Perihal</td>
+          <td>:</td>
+          <td>Surat Peringatan Pelanggaran Penyiaran</td>
+        </tr>
+        <tr>
+          <td>Tanggal</td>
+          <td>:</td>
+          <td>{{current_date}}</td>
+        </tr>
+      </table>
+      <section>
+        <p style="margin-bottom: 0">Kepada Yth.,</p>
+        <p style="margin-top: 0">Pimpinan {{station_name}}</p>
+
+        <p>Dengan Hormat,</p>
+
+        <p style="text-align: justify">
+          Sehubungan dengan pengawasan yang dilakukan oleh Komisi Penyiaran
+          Indonesia Daerah (KPID) Jawa Timur terhadap siaran {{station_name}}
+          pada tanggal {{record_date}}, kami menemukan adanya pelanggaran pada
+          program {{program_name}} yang tayang pada pukul {{start_time}}.
+        </p>
+
+        <p>Berikut ini adalah rincian pelanggaran yang kami temukan:</p>
+      </section>
+      <ol class="violations">
+        {{results}}
+      </ol>
+      <p style="text-align: justify">
+        Dengan ini kami sampaikan teguran tertulis kepada {{station_name}} untuk
+        segera mengambil tindakan perbaikan terkait pelanggaran yang telah
+        terjadi. Kami meminta {{station_name}} untuk:
+      </p>
+      <ol>
+        <li class="steps-item">
+          Melakukan evaluasi dan perbaikan konten program {{program_name}} agar
+          sesuai dengan ketentuan yang berlaku.
+        </li>
+        <li class="steps-item">
+          Menyampaikan klarifikasi dan permintaan maaf kepada pemirsa melalui
+          siaran langsung atau media sosial resmi {{station_name}}.
+        </li>
+        <li class="steps-item">
+          Menghentikan sementara program {{program_name}} hingga perbaikan
+          dilakukan dan pelanggaran tidak terulang.
+        </li>
+        <li class="steps-item">
+          Melaporkan langkah-langkah perbaikan yang telah dilakukan kepada KPID
+          Jawa Timur dalam kurun waktu 7 (tujuh) hari kerja sejak surat ini
+          diterima.
+        </li>
+      </ol>
+
+      <p style="text-align: justify">
+        Apabila dalam kurun waktu yang telah ditentukan {{station_name}} tidak
+        melakukan perbaikan sebagaimana yang diminta, maka KPID Jawa Timur akan
+        memberikan sanksi sesuai dengan ketentuan yang berlaku.
+      </p>
+
+      <p style="text-align: justify">
+        Demikian kami sampaikan, atas perhatian dan kerjasama yang baik kami
+        ucapkan terima kasih.
+      </p>
+
+      <section style="text-align: right">
+        <p>Hormat kami,</p>
+        <p>Komisi Penyiaran Indonesia Daerah Jawa Timur</p>
+      </section>
+    </div>
+  </body>
+</html>

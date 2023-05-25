@@ -1,19 +1,30 @@
+import logging
 import pathlib
 import sys
+import time
+
+current_directory = pathlib.Path.cwd()
+print(current_directory)
+sys.path.append(str(current_directory))
+MODEL_BASE = current_directory.joinpath("ai_utils", "models", "research")
+sys.path.append(str(MODEL_BASE))
+sys.path.append(str(MODEL_BASE.joinpath("object_detection")))
+sys.path.append(str(MODEL_BASE.joinpath("slim")))
+
 from typing import Dict, List
 
 import numpy as np
 import psutil
 import tensorflow as tf
 from PIL import Image
+from utils import label_map_util
 
-from ai_utils.models.research.object_detection.utils import label_map_util
 from app.dto import FrameResult, ModerationDecision, ModerationResult
 from config import UPLOAD_PATH
 
 # Patch the location of gfile
 tf.gfile = tf.io.gfile
-
+logger = logging.getLogger(__name__)
 
 class ObjectDetector(object):
     def __init__(self, model_path=None):
@@ -60,8 +71,9 @@ def detect_objects(frame_results: List[FrameResult]) -> List[ModerationResult]:
     for violation in violation_categories:
         model_path = current_directory.joinpath("ai_utils", "saved_model", violation)
         client = ObjectDetector(str(model_path))
+        start_time = time.time()
         for frame_result in frame_results:
-            print(f"\n\nDetecting {violation} {frame_result}\n\n")
+            logger.info(f"Detecting {violation} {frame_result}")
             saved_file = f"{UPLOAD_PATH}/{frame_result['frame_url'].split('/')[-1]}"
             with Image.open(saved_file).convert("RGB") as image:
                 model_result = client.detect(image)
@@ -77,8 +89,9 @@ def detect_objects(frame_results: List[FrameResult]) -> List[ModerationResult]:
                         second=frame_result["frame_time"],
                         clip_url="",
                         decision=str(ModerationDecision.PENDING),
-                        category=[violation],
+                        category=[violation.upper()],
                     )
+        logger.info(f"Detection of {violation} took {time.time() - start_time} seconds")
 
     return list(results.values())
 

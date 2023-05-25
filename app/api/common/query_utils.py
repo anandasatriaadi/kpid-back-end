@@ -106,8 +106,6 @@ def parse_query_params(
             temp.append({field: value})
 
     criteria = {"$and": temp} if len(temp) >= 1 else {}
-
-    logger.debug(f"\n\nCRITERIA: {criteria}\n\nSORTING: {sorting}\n\n")
     return criteria, sorting
 
 
