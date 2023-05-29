@@ -177,6 +177,7 @@ def login_user(
 # Update user
 def update_user(update_user_request: UpdateUserRequest) -> bool:
     email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    password_pattern = r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$"
 
     user_res = USER_DB.find_one({"_id": ObjectId(update_user_request.user_id)})
     if user_res is not None:
@@ -203,6 +204,23 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
 
         if update_user_request.is_active is not None:
             update_data["is_active"] = update_user_request.is_active
+
+        if update_user_request.old_password is not None:
+            if check_password_hash(user_res["password"], update_user_request.old_password):
+                if update_user_request.password != update_user_request.confirm_password:
+                    raise ApplicationException("New passwords do not match!", HTTPStatus.BAD_REQUEST)
+                elif not re.match(password_pattern, update_user_request.password):
+                    raise ApplicationException(
+                        "Password must be at least 8 characters long and contain both letters and numbers.",
+                        HTTPStatus.BAD_REQUEST,
+                    )
+                else:
+                    hashed_password = generate_password_hash(
+                        update_user_request.password, "sha256", 24
+                    )
+                    update_data["password"] = hashed_password
+            else:
+                raise ApplicationException("Old password is incorrect!", HTTPStatus.BAD_REQUEST)
 
         USER_DB.update_one(
             {"_id": ObjectId(update_user_request.user_id)}, {"$set": update_data}

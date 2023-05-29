@@ -27,12 +27,7 @@ cron_expression = "59 23 * * *"
 
 trigger = CronTrigger.from_crontab(cron_expression, timezone=timezone)
 scheduler.add_job(aggregate_user_login, trigger=trigger)
-# scheduler.start()
-
-def start_scheduler():
-    logger.info("Started APScheduler")
-    scheduler.start()
+scheduler.start()
 
 if __name__ == "__main__":
-    start_scheduler()
     app.run(host="0.0.0.0")

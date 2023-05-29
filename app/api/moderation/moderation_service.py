@@ -35,7 +35,9 @@ STATION_DB = DATABASE["stations"]
 
 
 # Returns A Paginateresponse Containing A List Of ModerationResponses Based On The Provided Query Parameters
-def get_by_params(query_params: Dict[str, str]) -> Tuple[List[ModerationResponse], Metadata]:
+def get_by_params(
+    query_params: Dict[str, str]
+) -> Tuple[List[ModerationResponse], Metadata]:
     moderation = DATABASE["moderation"]
 
     # Clean The Query Parameters And Parse Them Into Query And Pagination Parameters
@@ -52,7 +54,9 @@ def get_by_params(query_params: Dict[str, str]) -> Tuple[List[ModerationResponse
     if len(sort) > 0:
         results = results.sort(sort["field"], sort["direction"])
     if len(pagination) > 0:
-        results = results.skip(pagination["limit"] * pagination["page"]).limit(pagination["limit"])
+        results = results.skip(pagination["limit"] * pagination["page"]).limit(
+            pagination["limit"]
+        )
 
     # Convert The MongoDB Results Into ModerationResponse Objects And Add Them To The Output List
     output: List[ModerationResponse] = []
@@ -115,7 +119,9 @@ def start_moderation(object_id: str):
     video_metadata = [{"duration": moderation.duration}]
 
     # Enqueue A Job To Moderate The Video Using The Provided UploadInfo And Video Metadata
-    job = redis_conn.enqueue_call(func=moderate_video, args=(upload_info, video_metadata), timeout=3600)
+    job = redis_conn.enqueue_call(
+        func=moderate_video, args=(upload_info, video_metadata), timeout=3600
+    )
 
     # Log The ID Of The Job And The Saved ID Of The UploadInfo Object For Debugging Purposes
     logger.info("Job %s queued || Moderating Video %s", job.id, upload_info.saved_id)
@@ -191,8 +197,9 @@ def generate_pdf_report(moderation_id):
     # Replace Placeholders In The HTML Template With Data From The Moderation
     html = html.replace(
         "{{current_date}}",
-        format_datetime(datetime.now(
-        pytz.timezone("Asia/Jakarta")), "d MMMM YYYY", locale="id_ID"),
+        format_datetime(
+            datetime.now(pytz.timezone("Asia/Jakarta")), "d MMMM YYYY", locale="id_ID"
+        ),
     )
     html = html.replace(
         "{{record_date}}",
@@ -218,14 +225,26 @@ def validate_moderation(moderation_id, result_index, decision):
     # Retrieve The ModerationResponse Object For The Provided ID From The MongoDB Database
     result = MODERATION_DB.find_one({"_id": ObjectId(moderation_id)})
     moderation = ModerationResponse.from_document(result)
-    moderation_result = moderation.result
-    moderation_result[int(result_index)]["decision"] = str(
-        ModerationDecision.VALID if decision == "VALID" else ModerationDecision.INVALID
-    )
+    moderation_results = moderation.result
+    is_all_moderated = True
+    for index, result in enumerate(moderation_results):
+        if index == int(result_index):
+            result["decision"] = str(
+                ModerationDecision.VALID
+                if decision == "VALID"
+                else ModerationDecision.INVALID
+            )
 
+            if result["decision"] == str(ModerationDecision.PENDING):
+                is_all_moderated = False
+
+    logger.error(moderation_results)
     # Update The Status Of The Moderation In The Database To The Provided Decision
-    MODERATION_DB.update_one(
-        {"_id": ObjectId(moderation_id)}, {"$set": {"result": moderation_result}}
+    update_data = (
+        {"result": moderation_results, "status": str(ModerationStatus.VALIDATED)}
+        if is_all_moderated
+        else {"result": moderation_results}
     )
+    MODERATION_DB.update_one({"_id": ObjectId(moderation_id)}, {"$set": update_data})
 
     return True

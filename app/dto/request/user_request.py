@@ -29,3 +29,6 @@ class UpdateUserRequest:
     email: str = field(default=None)
     role: str = field(default=None)
     is_active: bool = field(default=None)
+    old_password: str = field(default=None)
+    password: str = field(default=None)
+    confirm_password: str = field(default=None)
