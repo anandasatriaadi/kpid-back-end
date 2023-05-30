@@ -106,7 +106,7 @@ def delete_one_station(_, station_key: str):
     response = BaseResponse()
     try:
         delete_station(station_key)
-        response.set_response("Station deleted successfully", HTTPStatus.OK)
+        response.set_response("Berhasil Menghapus Stasiun", HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)

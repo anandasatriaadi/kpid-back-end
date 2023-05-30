@@ -95,12 +95,12 @@ def start_moderation(object_id: str):
 
     # If The Moderation Cannot Be Found, Raise A 404 Exception
     if moderation is None:
-        raise ApplicationException("Moderation not found", HTTPStatus.NOT_FOUND)
+        raise ApplicationException("Moderasi Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     # If The Moderation Is Not In The Required Status, Raise A 400 Exception
     if moderation.status != str(ModerationStatus.UPLOADED):
         raise ApplicationException(
-            "Moderation is not in required status", HTTPStatus.BAD_REQUEST
+            "Moderasi Tidak Berada pada Status yang Diperlukan", HTTPStatus.BAD_REQUEST
         )
 
     # Create An UploadInfo Object For The Moderation's File

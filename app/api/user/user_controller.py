@@ -75,7 +75,7 @@ def get_user(current_user: User, user_id: str):
             # Set the response data to the current user and return the response
             response.set_response(current_user, HTTPStatus.OK)
         else:
-            raise ApplicationException("Unauthorized", HTTPStatus.UNAUTHORIZED)
+            raise ApplicationException("Akses Ditolak", HTTPStatus.UNAUTHORIZED)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -104,9 +104,9 @@ def signup():
 
         signup_success = signup_user(user_data)
         if signup_success:
-            response.set_response("User registered successfully", HTTPStatus.CREATED)
+            response.set_response("Berhasil Mendaftarkan User", HTTPStatus.CREATED)
         else:
-            raise ApplicationException("User already exists", HTTPStatus.BAD_REQUEST)
+            raise ApplicationException("User Sudah Ada di Sistem", HTTPStatus.BAD_REQUEST)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -179,9 +179,9 @@ def update_user_data(current_user: User):
         update_success = update_user(user_data)
 
         if update_success:
-            response.set_response("User updated successfully", HTTPStatus.OK)
+            response.set_response("Berhasil Memperbarui User", HTTPStatus.OK)
         else:
-            raise ApplicationException("User not found", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -212,9 +212,9 @@ def delete_user(current_user: User, user_id: str):
 
         update_success = update_user(user_data)
         if update_success:
-            response.set_response("User updated successfully", HTTPStatus.OK)
+            response.set_response("Berhasil Memperbarui User", HTTPStatus.OK)
         else:
-            raise ApplicationException("User not found", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -248,9 +248,9 @@ def update_user_role(current_user: User):
 
         update_success = update_user(user_data)
         if update_success:
-            response.set_response("User updated successfully", HTTPStatus.OK)
+            response.set_response("Berhasil Memperbarui User", HTTPStatus.OK)
         else:
-            raise ApplicationException("User not found", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)

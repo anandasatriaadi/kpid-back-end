@@ -89,7 +89,7 @@ def signup_user(create_request: CreateUserRequest) -> bool:
 
     # Checking if the email address provided is valid
     if not re.match(email_pattern, create_request.email):
-        raise ApplicationException("Invalid email address", HTTPStatus.BAD_REQUEST)
+        raise ApplicationException("Alamat Email Tidak Valid", HTTPStatus.BAD_REQUEST)
     # Checking if the password meets the requirements
     elif not re.match(password_pattern, create_request.password):
         raise ApplicationException(
@@ -98,12 +98,12 @@ def signup_user(create_request: CreateUserRequest) -> bool:
         )
     # Checking if the passwords match
     elif create_request.password != create_request.confirm_password:
-        raise ApplicationException("Passwords do not match!", HTTPStatus.BAD_REQUEST)
+        raise ApplicationException("Password Tidak Cocok", HTTPStatus.BAD_REQUEST)
     else:
         # Checking if the user already exists in the database
         user_res = USER_DB.find_one({"email": create_request.email.lower()})
         if user_res:
-            raise ApplicationException("User already exists", HTTPStatus.BAD_REQUEST)
+            raise ApplicationException("User Sudah Ada di Sistem", HTTPStatus.BAD_REQUEST)
         else:
             # Generating a hashed password for the new user
             hashed_password = generate_password_hash(
@@ -147,7 +147,7 @@ def login_user(
             # Checking if the password provided is correct
             if not user_res.is_active:
                 raise ApplicationException(
-                    "Unable to login. User is deactivated.", HTTPStatus.BAD_REQUEST
+                    "Tidak dapat Login. User Sudah Non Aktif", HTTPStatus.BAD_REQUEST
                 )
             elif check_password_hash(user_res.password, login_request.password):
                 # Updating the last login time of the user
@@ -168,10 +168,10 @@ def login_user(
             else:
                 # Setting the response for incorrect password
                 raise ApplicationException(
-                    "Invalid email and password", HTTPStatus.BAD_REQUEST
+                    "Email atau Password Tidak Valid", HTTPStatus.BAD_REQUEST
                 )
         else:
-            raise ApplicationException("No email found", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("Email atau Password Tidak Valid", HTTPStatus.BAD_REQUEST)
 
 
 # Update user
@@ -194,10 +194,10 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
             logger.debug(f"{user_res['email']} {update_user_request.email}")
             if re.match(email_pattern, update_user_request.email):
                 if USER_DB.find_one({"email": update_user_request.email.lower()}):
-                    raise ApplicationException("Email already exists", HTTPStatus.BAD_REQUEST)
+                    raise ApplicationException("Email Sudah Terdaftar di Sistem", HTTPStatus.BAD_REQUEST)
                 update_data["email"] = update_user_request.email.lower()
             else:
-                raise ApplicationException("Invalid email address", HTTPStatus.BAD_REQUEST)
+                raise ApplicationException("Alamat Email Tidak Valid", HTTPStatus.BAD_REQUEST)
 
         if update_user_request.role is not None:
             update_data["role"] = update_user_request.role
@@ -208,10 +208,10 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
         if update_user_request.old_password is not None:
             if check_password_hash(user_res["password"], update_user_request.old_password):
                 if update_user_request.password != update_user_request.confirm_password:
-                    raise ApplicationException("New passwords do not match!", HTTPStatus.BAD_REQUEST)
+                    raise ApplicationException("Password Baru Tidak Cocok!", HTTPStatus.BAD_REQUEST)
                 elif not re.match(password_pattern, update_user_request.password):
                     raise ApplicationException(
-                        "Password must be at least 8 characters long and contain both letters and numbers.",
+                        "Kata Sandi Harus Terdiri dari Minimal 8 Karakter dan Mengandung Kombinasi Huruf dan Angka",
                         HTTPStatus.BAD_REQUEST,
                     )
                 else:
@@ -220,14 +220,14 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
                     )
                     update_data["password"] = hashed_password
             else:
-                raise ApplicationException("Old password is incorrect!", HTTPStatus.BAD_REQUEST)
+                raise ApplicationException("Password Lama Tidak Sesuai!", HTTPStatus.BAD_REQUEST)
 
         USER_DB.update_one(
             {"_id": ObjectId(update_user_request.user_id)}, {"$set": update_data}
         )
         return True
     else:
-        raise ApplicationException("User not found", HTTPStatus.NOT_FOUND)
+        raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
 
 # aggregate user login

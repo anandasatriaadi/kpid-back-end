@@ -89,7 +89,7 @@ def create_station(station_name: str) -> str:
         # Setting the response for successful station creation
         return str(res.inserted_id)
     else:
-        raise ApplicationException("Station already exists", HTTPStatus.BAD_REQUEST)
+        raise ApplicationException("Stasiun Sudah Ada", HTTPStatus.BAD_REQUEST)
 
 
 def update_station(old_key: str, station_name: str) -> int:
@@ -117,7 +117,7 @@ def update_station(old_key: str, station_name: str) -> int:
         )
         return res.modified_count
     else:
-        raise ApplicationException("Station does not exist", HTTPStatus.BAD_REQUEST)
+        raise ApplicationException("Stasiun Tidak Ditemukan", HTTPStatus.BAD_REQUEST)
 
 
 def delete_station(
@@ -131,4 +131,4 @@ def delete_station(
         res = STATION_DB.delete_one({"key": key})
         return res.deleted_count
     else:
-        raise ApplicationException("Station does not exist", HTTPStatus.BAD_REQUEST)
+        raise ApplicationException("Stasiun Tidak Ditemukan", HTTPStatus.BAD_REQUEST)

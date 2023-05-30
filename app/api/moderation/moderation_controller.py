@@ -103,7 +103,7 @@ def get_moderation(current_user: User, moderation_id: str):
         # Get results. If no moderations were found, raise an ApplicationException with a 404 status
         result, _ = get_by_params(query_params)
         if len(result) == 0:
-            raise ApplicationException("No moderation found", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("Moderasi Tidak Ditemukan", HTTPStatus.NOT_FOUND)
         response.set_response(result[0], HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
@@ -213,7 +213,7 @@ def initiate_moderation(_, moderation_id):
     try:
         # Initiate the moderation with the provided ID
         start_moderation(form_moderation_id)
-        response.set_response("Moderation started", HTTPStatus.OK)
+        response.set_response("Moderation Dimulai", HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
         logger.error(str(err))
@@ -336,7 +336,7 @@ def validate_result(_, moderation_id):
 
         # Validate the moderation results with the provided ID and decision
         validate_moderation(moderation_id, result_index, decision)
-        response.set_response("Moderation validated", HTTPStatus.OK)
+        response.set_response("Dugaan Pelanggaran Divalidasi", HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
         logger.error(str(err))

@@ -129,7 +129,7 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
 
     # If The Video Metadata Is None, Raise A 400 Exception
     if video_metadata is None:
-        raise ApplicationException("Video metadata is None", HTTPStatus.BAD_REQUEST)
+        raise ApplicationException("Tidak Ditemukan Metadata Video", HTTPStatus.BAD_REQUEST)
 
     # Parse The Recording Date And Start And End Times From The Form Data
     recording_date = datetime.strptime(

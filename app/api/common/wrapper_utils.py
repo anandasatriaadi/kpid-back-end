@@ -23,7 +23,7 @@ def token_required(func: Callable) -> Callable:
 
         # If the token is not present, return a 401 Unauthorized response
         if not token:
-            response.set_response("Token is missing", 401)
+            response.set_response("Token Diperlukan", 401)
             return response.get_response()
 
         try:
@@ -32,7 +32,7 @@ def token_required(func: Callable) -> Callable:
 
             current_user = User.from_document(current_user)
             if not current_user:
-                raise ApplicationException("User not found", HTTPStatus.UNAUTHORIZED)
+                raise ApplicationException("User Tidak Ditemukan", HTTPStatus.UNAUTHORIZED)
 
         except (jwt.PyJWTError, ApplicationException) as err:
             logger.error(str(err))
@@ -54,7 +54,7 @@ def is_admin(func: Callable) -> Callable:
         response = BaseResponse()
         # Check if the current user is an admin
         if not current_user.role == "admin":
-            response.set_response("Access denied. Admin privileges required.", 403)
+            response.set_response("Akses Ditolak! Diperlukan Hak Akses Admin", 403)
             return response.get_response()
         return func(current_user, *args, **kwargs)
 
