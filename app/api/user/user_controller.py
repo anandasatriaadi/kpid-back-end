@@ -52,9 +52,12 @@ def get_all_users(_):
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
+
 
 # get user by token
 @user_bp.route("/users/<user_id>", methods=["GET"])
@@ -65,7 +68,9 @@ def get_user(current_user: User, user_id: str):
     try:
         if str(current_user._id) == user_id:
             # Convert the current user data to a UserResponse object
-            current_user = from_dict(data_class=UserResponse, data=current_user.as_dict())
+            current_user = from_dict(
+                data_class=UserResponse, data=current_user.as_dict()
+            )
 
             # Set the response data to the current user and return the response
             response.set_response(current_user, HTTPStatus.OK)
@@ -78,7 +83,9 @@ def get_user(current_user: User, user_id: str):
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
 
@@ -107,7 +114,9 @@ def signup():
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
 
@@ -131,10 +140,11 @@ def login():
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
-
 
 
 # update user
@@ -146,17 +156,26 @@ def update_user_data(current_user: User):
     try:
         if request.mimetype == "application/json":
             user_data = UpdateUserRequest(
-                user_id=current_user._id if request.get_json().get("user_id") is None else request.get_json().get("user_id"),
+                user_id=current_user._id
+                if request.get_json().get("user_id") is None
+                else request.get_json().get("user_id"),
                 name=request.get_json().get("name"),
                 email=request.get_json().get("email"),
+                old_password=request.get_json().get("old_password"),
+                password=request.get_json().get("password"),
+                confirm_password=request.get_json().get("confirm_password"),
             )
         else:
             user_data = UpdateUserRequest(
                 user_id=request.form.get("user_id", current_user._id),
                 name=request.form.get("name"),
                 email=request.form.get("email"),
+                old_password=request.form.get("old_password"),
+                password=request.form.get("password"),
+                confirm_password=request.form.get("confirm_password"),
             )
 
+        logger.error(user_data)
         update_success = update_user(user_data)
 
         if update_success:
@@ -170,7 +189,9 @@ def update_user_data(current_user: User):
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
 
@@ -200,9 +221,12 @@ def delete_user(current_user: User, user_id: str):
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
+
 
 # update user's role
 @user_bp.route("/users/role", methods=["PUT"])
@@ -234,6 +258,8 @@ def update_user_role(current_user: User):
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
-            response.set_response("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            response.set_response(
+                "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     return response.get_response()
