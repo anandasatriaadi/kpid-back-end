@@ -103,7 +103,9 @@ def signup_user(create_request: CreateUserRequest) -> bool:
         # Checking if the user already exists in the database
         user_res = USER_DB.find_one({"email": create_request.email.lower()})
         if user_res:
-            raise ApplicationException("User Sudah Ada di Sistem", HTTPStatus.BAD_REQUEST)
+            raise ApplicationException(
+                "Pengguna Sudah Ada di Sistem", HTTPStatus.BAD_REQUEST
+            )
         else:
             # Generating a hashed password for the new user
             hashed_password = generate_password_hash(
@@ -114,10 +116,28 @@ def signup_user(create_request: CreateUserRequest) -> bool:
             create_request_dict = asdict(create_request)
             create_request_dict.pop("confirm_password")
             # Inserting the new user details into the database
-            USER_DB.insert_one(create_request_dict)
+            inserted_id = USER_DB.insert_one(create_request_dict).inserted_id
 
-            # Setting the response for successful user creation
-            return True
+            try:
+                # Setting the response for successful user creation
+                inserted_user = User.from_document(
+                    USER_DB.find_one({"_id": inserted_id})
+                )
+                inserted_user = UserResponse.from_document(inserted_user.as_dict())
+                user_encode = inserted_user.as_dict()
+                user_encode["exp"] = datetime.utcnow() + timedelta(hours=12)
+                access_token = jwt.encode(user_encode, SECRET_KEY, algorithm="HS256")
+
+                # Setting the response with the access token and user data
+                result = {"token": access_token, "user_data": inserted_user}
+                return result
+            except Exception as e:
+                logger.error(e)
+                USER_DB.delete_one({"_id": inserted_id})
+                raise ApplicationException(
+                    "Terjadi Kesalahan Saat Membuat Pengguna",
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
 
 
 # POST : login user
@@ -147,7 +167,8 @@ def login_user(
             # Checking if the password provided is correct
             if not user_res.is_active:
                 raise ApplicationException(
-                    "Tidak dapat Login. User Sudah Non Aktif", HTTPStatus.BAD_REQUEST
+                    "Tidak dapat Login. Pengguna Sudah Non Aktif",
+                    HTTPStatus.BAD_REQUEST,
                 )
             elif check_password_hash(user_res.password, login_request.password):
                 # Updating the last login time of the user
@@ -171,7 +192,9 @@ def login_user(
                     "Email atau Password Tidak Valid", HTTPStatus.BAD_REQUEST
                 )
         else:
-            raise ApplicationException("Email atau Password Tidak Valid", HTTPStatus.BAD_REQUEST)
+            raise ApplicationException(
+                "Email atau Password Tidak Valid", HTTPStatus.BAD_REQUEST
+            )
 
 
 # Update user
@@ -194,10 +217,14 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
             logger.debug(f"{user_res['email']} {update_user_request.email}")
             if re.match(email_pattern, update_user_request.email):
                 if USER_DB.find_one({"email": update_user_request.email.lower()}):
-                    raise ApplicationException("Email Sudah Terdaftar di Sistem", HTTPStatus.BAD_REQUEST)
+                    raise ApplicationException(
+                        "Email Sudah Terdaftar di Sistem", HTTPStatus.BAD_REQUEST
+                    )
                 update_data["email"] = update_user_request.email.lower()
             else:
-                raise ApplicationException("Alamat Email Tidak Valid", HTTPStatus.BAD_REQUEST)
+                raise ApplicationException(
+                    "Alamat Email Tidak Valid", HTTPStatus.BAD_REQUEST
+                )
 
         if update_user_request.role is not None:
             update_data["role"] = update_user_request.role
@@ -206,9 +233,13 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
             update_data["is_active"] = update_user_request.is_active
 
         if update_user_request.old_password is not None:
-            if check_password_hash(user_res["password"], update_user_request.old_password):
+            if check_password_hash(
+                user_res["password"], update_user_request.old_password
+            ):
                 if update_user_request.password != update_user_request.confirm_password:
-                    raise ApplicationException("Password Baru Tidak Cocok!", HTTPStatus.BAD_REQUEST)
+                    raise ApplicationException(
+                        "Password Baru Tidak Cocok!", HTTPStatus.BAD_REQUEST
+                    )
                 elif not re.match(password_pattern, update_user_request.password):
                     raise ApplicationException(
                         "Kata Sandi Harus Terdiri dari Minimal 8 Karakter dan Mengandung Kombinasi Huruf dan Angka",
@@ -220,14 +251,16 @@ def update_user(update_user_request: UpdateUserRequest) -> bool:
                     )
                     update_data["password"] = hashed_password
             else:
-                raise ApplicationException("Password Lama Tidak Sesuai!", HTTPStatus.BAD_REQUEST)
+                raise ApplicationException(
+                    "Password Lama Tidak Sesuai!", HTTPStatus.BAD_REQUEST
+                )
 
         USER_DB.update_one(
             {"_id": ObjectId(update_user_request.user_id)}, {"$set": update_data}
         )
         return True
     else:
-        raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
+        raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
 
 # aggregate user login
@@ -244,8 +277,10 @@ def aggregate_user_login() -> bool:
         # Create the aggregation pipeline
         pipeline = [
             {
-                "$match": {"last_login": {"$gte": start_date, "$lte": end_date}},
-                "is_active": True,
+                "$match": {
+                    "last_login": {"$gte": start_date, "$lte": end_date},
+                    "is_active": True,
+                },
             },
             {
                 "$project": {
@@ -298,5 +333,6 @@ def aggregate_user_login() -> bool:
 
         return True
     except Exception as err:
+        raise err
         logger.error(err)
         return False

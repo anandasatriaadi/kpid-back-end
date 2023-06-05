@@ -32,7 +32,7 @@ def token_required(func: Callable) -> Callable:
 
             current_user = User.from_document(current_user)
             if not current_user:
-                raise ApplicationException("User Tidak Ditemukan", HTTPStatus.UNAUTHORIZED)
+                raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.UNAUTHORIZED)
 
         except (jwt.PyJWTError, ApplicationException) as err:
             logger.error(str(err))

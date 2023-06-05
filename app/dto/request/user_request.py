@@ -18,7 +18,7 @@ class CreateUserRequest(object):
     confirm_password: str
     role: str = field(default="user")
     is_active: bool = field(default=True)
-    last_login: datetime = field(default=None)
+    last_login: datetime = field(default=datetime.utcnow())
     created_at: datetime = field(default=datetime.utcnow())
 
 

@@ -120,7 +120,7 @@ def start_moderation(object_id: str):
 
     # Enqueue A Job To Moderate The Video Using The Provided UploadInfo And Video Metadata
     job = redis_conn.enqueue_call(
-        func=moderate_video, args=(upload_info, video_metadata), timeout=3600
+        func=moderate_video, args=(upload_info, video_metadata), timeout=7200
     )
 
     # Log The ID Of The Job And The Saved ID Of The UploadInfo Object For Debugging Purposes

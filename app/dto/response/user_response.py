@@ -14,7 +14,9 @@ class UserResponse:
 
     def as_dict(self):
         data = self.__dict__.copy()
-        data['last_login'] = data['last_login'].timestamp()
+        data["_id"] = str(data["_id"])
+        if data['last_login'] is not None:
+            data['last_login'] = data['last_login'].timestamp()
         return data
 
     @classmethod

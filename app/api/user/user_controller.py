@@ -7,6 +7,7 @@ from flask import Blueprint, request
 from app.api.common.wrapper_utils import is_admin, token_required
 from app.api.exceptions import ApplicationException
 from app.api.user.user_service import (
+    aggregate_user_login,
     get_user_by_params,
     login_user,
     signup_user,
@@ -102,11 +103,7 @@ def signup():
         else:
             user_data = from_dict(data_class=CreateUserRequest, data=request.form)
 
-        signup_success = signup_user(user_data)
-        if signup_success:
-            response.set_response("Berhasil Mendaftarkan User", HTTPStatus.CREATED)
-        else:
-            raise ApplicationException("User Sudah Ada di Sistem", HTTPStatus.BAD_REQUEST)
+        response.set_response(signup_user(user_data), HTTPStatus.CREATED)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -179,9 +176,9 @@ def update_user_data(current_user: User):
         update_success = update_user(user_data)
 
         if update_success:
-            response.set_response("Berhasil Memperbarui User", HTTPStatus.OK)
+            response.set_response("Berhasil Memperbarui Pengguna", HTTPStatus.OK)
         else:
-            raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -205,16 +202,16 @@ def delete_user(current_user: User, user_id: str):
 
     try:
         if str(current_user._id) == user_id:
-            response.set_response("Cannot delete current user", HTTPStatus.BAD_REQUEST)
+            response.set_response("Tidak Bisa Menghapus Pengguna Ini", HTTPStatus.BAD_REQUEST)
             return response.get_response()
 
         user_data = UpdateUserRequest(user_id, is_active=False)
 
         update_success = update_user(user_data)
         if update_success:
-            response.set_response("Berhasil Memperbarui User", HTTPStatus.OK)
+            response.set_response("Berhasil Memperbarui Pengguna", HTTPStatus.OK)
         else:
-            raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)
@@ -248,9 +245,9 @@ def update_user_role(current_user: User):
 
         update_success = update_user(user_data)
         if update_success:
-            response.set_response("Berhasil Memperbarui User", HTTPStatus.OK)
+            response.set_response("Berhasil Memperbarui Pengguna", HTTPStatus.OK)
         else:
-            raise ApplicationException("User Tidak Ditemukan", HTTPStatus.NOT_FOUND)
+            raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
         logger.error(err)

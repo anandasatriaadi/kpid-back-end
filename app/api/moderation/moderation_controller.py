@@ -159,8 +159,8 @@ def upload_form(current_user: User):
         upload_info = UploadInfo(
             user_id=str(current_user._id),
             filename=f"{file.filename.split('.')[0]}",
-            file_ext="mp4",
-            file_with_ext=f"{file.filename.split('.')[0]}.mp4",
+            file_ext=f"{file.filename.split('.')[1]}",
+            file_with_ext=f"{file.filename}",
             video_save_path=os.path.join(
                 UPLOAD_PATH, f"{str(current_user._id)}_{file.filename}"
             ),
@@ -171,7 +171,7 @@ def upload_form(current_user: User):
 
         # Enqueue a job to extract frames from the uploaded video
         job = redis_conn.enqueue_call(
-            func=extract_frames, args=(upload_info, video_metadata)
+            func=extract_frames, args=(upload_info, video_metadata), timeout=1800
         )
         logger.info(
             "Job %s queued || Extracting Frames %s", job.id, upload_info.saved_id
@@ -180,7 +180,7 @@ def upload_form(current_user: User):
         # If the 'process_now' form data is set to 'true', enqueue a job to analyze the video using models
         if form_data["process_now"] == "true":
             job = redis_conn.enqueue_call(
-                func=moderate_video, args=(upload_info, video_metadata)
+                func=moderate_video, args=(upload_info, video_metadata), timeout=7200
             )
             logger.info(
                 "Job %s queued || Moderating Video %s", job.id, upload_info.saved_id
@@ -191,7 +191,6 @@ def upload_form(current_user: User):
 
     except (Exception, ApplicationException) as err:
         logger.error(str(err))
-        raise err
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)

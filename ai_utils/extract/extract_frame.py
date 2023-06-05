@@ -79,8 +79,7 @@ def keyframe_detection(user_id, filename, source, dest, threshold, plot_metrics=
         print("Error opening video file")
         return []
 
-    lstfrm = []
-    lstdiff_mag = []
+    list_diff_mag = []
     time_spans = []
     images = []
     full_color = []
@@ -90,17 +89,12 @@ def keyframe_detection(user_id, filename, source, dest, threshold, plot_metrics=
     print(f"fps {fps}")
     curr_iter = 0
     while (curr_iter * fps) <= length:
-        print(f"CAP PROPS {cap.get(cv2.CAP_PROP_POS_FRAMES)}")
         cap.set(cv2.CAP_PROP_POS_FRAMES, curr_iter * fps)
-        print(f"CAP PROPS A {cap.get(cv2.CAP_PROP_POS_FRAMES)}")
-        ret, frame = cap.read()
+        _, frame = cap.read()
 
         gray_frame, blur_gray = __convert_frame_to_grayscale(frame)
 
-        print(f"CAP PROPS {cap.get(cv2.CAP_PROP_POS_FRAMES)}")
         frame_number = cap.get(cv2.CAP_PROP_POS_FRAMES) - 1
-        print(f"Frame Number {frame_number}")
-        lstfrm.append(frame_number)
         images.append(gray_frame)
         full_color.append(frame)
         if frame_number == 0:
@@ -115,31 +109,28 @@ def keyframe_detection(user_id, filename, source, dest, threshold, plot_metrics=
             print(err)
             print(frame_number, blur_gray, last_frame)
         diff_mag = cv2.countNonZero(diff)
-        lstdiff_mag.append(diff_mag)
+        list_diff_mag.append(diff_mag)
         time_spans.append(curr_iter)
         last_frame = blur_gray
         curr_iter += 1
-        
 
     cap.release()
-    y = np.array(lstdiff_mag)
+    y = np.array(list_diff_mag)
     base = peakutils.baseline(y, 2)
     indices = peakutils.indexes(y - base, threshold, min_dist=1)
 
-    cnt = 1
     results = []
-    for x in indices:
+    for index, elem in enumerate(indices):
         with NamedTemporaryFile(suffix='.jpg') as temp:
-            status = cv2.imwrite(temp.name, full_color[x])
+            status = cv2.imwrite(temp.name, full_color[elem])
             if status:
                 print('Image uploaded.')
             else:
                 print("Image upload failed.")
-            cnt += 1
-            log_message = f"Keyframe {cnt} happened at {time_spans[x]} sec."
+            log_message = f"Keyframe {index+1} happened at {time_spans[elem]} sec."
             print(log_message)
-            keyframe_path = f"{folder_path}/{filename_wo_ext}_{cnt}.jpg"
-            results.append({"frame_url": keyframe_path, "frame_time": round(time_spans[x], 2)})
+            keyframe_path = f"{folder_path}/{filename_wo_ext}_{index+1}.jpg"
+            results.append({"frame_url": keyframe_path, "frame_time": round(time_spans[elem], 2)})
             dest_blob = dest.blob(keyframe_path)
             dest_blob.upload_from_filename(temp.name, content_type='image/jpeg')
             dest_blob.make_public()
@@ -172,10 +163,10 @@ def main(request: Request):
     user_id = video_data['user_id']
 
     client = storage.Client()
-    source_bucket = client.get_bucket("kpid-jatim")
+    source_bucket = client.get_bucket(str(os.getenv('GOOGLE_STORAGE_BUCKET_NAME')))
     source_blob = source_bucket.get_blob(video_path)
 
-    dest_bucket = client.get_bucket("kpid-jatim")
+    dest_bucket = client.get_bucket(str(os.getenv('GOOGLE_STORAGE_BUCKET_NAME')))
 
     print(f"Extracting {source_blob}")
     if str(source_blob.name).endswith('.mp4'):
