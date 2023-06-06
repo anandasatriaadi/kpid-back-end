@@ -109,6 +109,10 @@ def update_station(old_key: str, station_name: str) -> int:
     new_key_tokenized = tokenize_string(station_name, True)
     station_res = STATION_DB.find_one({"key": old_key_tokenized})
 
+    existing_station = STATION_DB.find_one({"key": new_key_tokenized})
+    if existing_station:
+        raise ApplicationException("Stasiun Sudah Ada", HTTPStatus.BAD_REQUEST)
+
     if station_res:
         # Update existing station details
         update_request = UpdateStationRequest(key=new_key_tokenized, name=station_name)

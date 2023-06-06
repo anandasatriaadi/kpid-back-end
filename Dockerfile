@@ -37,7 +37,8 @@ RUN wget --load-cookies \
 # volume
 VOLUME /usr/src/app/
 
-CMD [ "gunicorn", "--bind", "0.0.0.0:5000", "--timeout=0", "--workers=2", "--access-logfile", "'-'", "run:app" ]
-
 # copy project
 COPY . /usr/src/app/
+
+CMD [ "gunicorn", "--bind", "0.0.0.0:5000", "--timeout=0", "--workers=2", "--access-logfile", "'-'", "run:app" ]
+
