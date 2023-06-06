@@ -5,7 +5,7 @@ services:
     container_name: kpid-back-end
     build: ./
     image: kpid-back-end
-    command: gunicorn --bind 0.0.0.0:5000 --timeout=0 --workers=2 --access-logfile '-' run:app
+    command: gunicorn --bind 0.0.0.0:5000 --preload --timeout=0 --workers=2 --access-logfile '-' run:app
     volumes:
       - ./:/usr/src/app/
     ports:
