@@ -148,7 +148,7 @@ def get_moderation_count(_):
 # handle moderation form submission
 @moderation_bp.route("/moderations", methods=["POST"])
 @token_required
-def upload_form(current_user: User):
+def create_moderation(current_user: User):
     response = BaseResponse()
 
     try:

@@ -35,7 +35,7 @@ def get_all_stations(_):
         response.set_response(results, HTTPStatus.OK)
         
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
         
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -61,7 +61,7 @@ def create_new_station(_):
         response.set_response(create_station(form_data.get("station_name")), HTTPStatus.CREATED)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -88,7 +88,7 @@ def update_existing_station(_):
         response.set_response("Station updated successfully", HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -109,7 +109,7 @@ def delete_one_station(_, station_key: str):
         response.set_response("Berhasil Menghapus Stasiun", HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)

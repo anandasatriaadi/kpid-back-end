@@ -113,6 +113,8 @@ def start_moderation(object_id: str):
         video_save_path=os.path.join(
             UPLOAD_PATH, f"{moderation.user_id}_{moderation.filename}"
         ),
+        audio_save_path=os.path.join(UPLOAD_PATH, f"{moderation.user_id}_{moderation.filename}.mp3"
+        ),
     )
 
     # Create A Video Metadata List With The Duration Of The Moderation
@@ -238,7 +240,6 @@ def validate_moderation(moderation_id, result_index, decision):
             if result["decision"] == str(ModerationDecision.PENDING):
                 is_all_moderated = False
 
-    logger.error(moderation_results)
     # Update The Status Of The Moderation In The Database To The Provided Decision
     update_data = (
         {"result": moderation_results, "status": str(ModerationStatus.VALIDATED)}

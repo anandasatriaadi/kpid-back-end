@@ -16,7 +16,7 @@ class Moderation:
     user_id: str
     filename: str
     program_name: str
-    station_name: Union[Station, str]
+    station_name: Station
     start_time: str
     end_time: str
     fps: int
@@ -42,8 +42,7 @@ class Moderation:
     def from_document(cls, document: dict):
         data = document.copy()
         data["_id"] = str(data["_id"])
-        if isinstance(data["station_name"], dict):
-            data["station_name"] = Station.from_document(data["station_name"]).as_dict()
+        data["station_name"] = Station.from_document(data["station_name"]).as_dict()
 
         filtered_data = {k: v for k, v in data.items() if k in cls.__annotations__}
         return cls(**filtered_data)

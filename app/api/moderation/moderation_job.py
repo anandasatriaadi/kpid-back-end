@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from json import loads
+from math import ceil, floor
 from typing import Tuple
 
 import ffmpeg
@@ -14,7 +15,7 @@ from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_audio, ffmpeg_extract_subclip
 from rq import Queue
 
-from ai_utils.detect import detect_objects
+from ai_utils.detect import detect_objects, transcribe_gcs
 from ai_utils.extract import keyframe_detection
 from app.api.common.gcloud_utils import (
     delete_file_gcloud,
@@ -27,6 +28,8 @@ from app.api.station.station_service import create_station
 from app.dto import (
     CreateModerationRequest,
     Moderation,
+    ModerationDecision,
+    ModerationResult,
     ModerationStatus,
     Station,
     UploadInfo,
@@ -35,6 +38,7 @@ from config import (
     DATABASE,
     GOOGLE_BUCKET_NAME,
     GOOGLE_EXTRACT_FRAME_URL,
+    GOOGLE_MODERATE_AUDIO_URL,
     GOOGLE_STORAGE_CLIENT,
     UPLOAD_PATH,
     USE_GOOGLE_FUNCTIONS,
@@ -53,12 +57,15 @@ def convert_duration_to_seconds(duration_time):
 
 
 def get_duration_from_tags(tags):
-    duration_keys = ["DURATION", "Duration"]  # Add more keys as needed
+    duration_keys = ["DURATION", "Duration"]    # Add more keys as needed
     for key in duration_keys:
         if key in tags:
             duration = tags[key]
             return convert_duration_to_seconds(duration)
-    return None
+    
+    raise ApplicationException(
+        "Video duration could not be found", HTTPStatus.BAD_REQUEST
+    )
 
 
 # Read Video Metadata
@@ -69,7 +76,7 @@ def extract_metadata(upload_info: UploadInfo) -> dict:
 
         if video_metadata:
             video_stream = video_metadata[0]
-            logger.error(video_stream)
+            logger.info(video_stream)
 
             # Checking for every possible key for duration
             if "duration" in video_stream:
@@ -98,14 +105,14 @@ def extract_metadata(upload_info: UploadInfo) -> dict:
             # Checking for nb_frames
             if "nb_frames" not in video_stream:
                 video_metadata[0]["nb_frames"] = math.floor(
-                    video_metadata[0]["duration"] * video_stream["avg_frame_rate"]
+                    video_metadata[0]["duration"] * eval(video_stream["avg_frame_rate"])
                 )
 
-        logger.error(video_metadata)
+        logger.info(video_metadata)
         return video_metadata
-    except ffmpeg.Error as err:
-        logger.error(err)
-        return None
+    except Exception as err:
+        logger.error(str(err))
+        raise err
 
 
 def convert_video_extract_audio(upload_info: UploadInfo) -> bool:
@@ -131,14 +138,14 @@ def convert_video_extract_audio(upload_info: UploadInfo) -> bool:
         )
         upload_info.audio_save_path = f"{UPLOAD_PATH}/{upload_info.filename}.mp3"
         return True
-    except ffmpeg.Error as err:
-        logger.error(err)
-        return False
+    except Exception as err:
+        logger.error(str(err))
+        raise err
 
 
-def convert_and_upload_to_gcloud(upload_info):
+def convert_and_upload_to_gcloud(upload_info: UploadInfo):
     convert_video_extract_audio(upload_info)
-    logger.error(upload_info)
+    logger.info(upload_info)
 
     # Upload The Video and Audio To Google Cloud Storage
     vid_bucket_path = f"uploads/{upload_info.user_id}_{upload_info.file_with_ext}"
@@ -162,8 +169,8 @@ def create_moderation(moderation_request: CreateModerationRequest) -> str:
             )
         return str(res.inserted_id)
     except Exception as err:
-        logger.error(err)
-        raise (err)
+        logger.error(str(err))
+        raise err
 
 
 # Save The Uploaded File To Storage, Extract Metadata, And Save Moderation Information To The Database
@@ -180,7 +187,7 @@ def save_file(upload_info: UploadInfo) -> Tuple[UploadInfo, dict]:
         func=convert_and_upload_to_gcloud, args=([upload_info]), timeout=3600
     )
     logger.info(
-        "Job %s queued || Convert Video and Extract Audio  %s",
+        "Job %s queued || Convert Video and Extract Audio %s",
         job.id,
         upload_info.filename,
     )
@@ -248,10 +255,8 @@ def extract_frames(upload_info: UploadInfo, metadata):
             "user_id": upload_info.user_id,
         }
 
-        logger.error(USE_GOOGLE_FUNCTIONS)
         if USE_GOOGLE_FUNCTIONS:
             req_response = requests.post(GOOGLE_EXTRACT_FRAME_URL, payload)
-            logger.error(str(req_response.json()))
             frame_results = loads(str(req_response.json()).replace("'", '"'))
         else:
             bucket = GOOGLE_STORAGE_CLIENT.bucket(GOOGLE_BUCKET_NAME)
@@ -276,9 +281,10 @@ def extract_frames(upload_info: UploadInfo, metadata):
         )
 
         logger.info("Frames uploaded to gcloud")
-    except Exception as e:
-        logger.error(e)
+    except Exception as err:
+        logger.error(str(err))
         MODERATION_DB.delete_one({"_id": ObjectId(upload_info.saved_id)})
+        raise err
 
 
 def moderate_video(upload_info: UploadInfo, metadata):
@@ -291,10 +297,6 @@ def moderate_video(upload_info: UploadInfo, metadata):
         )
 
         video_duration = float(metadata[0]["duration"])
-        if metadata[0]["duration"] is not None:
-            video_duration = float(metadata[0]["duration"])
-        elif metadata[0]["tags"]["DURATION"] is not None:
-            video_duration = float(metadata[0]["tags"]["DURATION"])
 
         # Download All Frame Files Before Detecting The Frames Using Model
         moderation_data = Moderation.from_document(initial_data)
@@ -303,7 +305,16 @@ def moderate_video(upload_info: UploadInfo, metadata):
 
         # Detect The Frames Using Model
         detected_frames = detect_objects(moderation_data.frames)
-        logger.error(detected_frames)
+        payload = {
+            "audio_path": f"uploads/{upload_info.user_id}_{upload_info.filename}.mp3",
+        }
+        req_response: requests.Response = requests.post(GOOGLE_MODERATE_AUDIO_URL, payload)
+        if req_response.status_code != 200:
+            raise Exception("Error in audio moderation")
+        detected_audios = loads(str(req_response.json()).replace("'", '"'))['data']
+        
+        detected_violations = combine_detected_results(detected_frames, detected_audios)
+        detected_violations = combine_results(detected_violations)
 
         # Check If The Video File Exists And Download If Not Exists
         video_save_path = os.path.join(
@@ -316,9 +327,9 @@ def moderate_video(upload_info: UploadInfo, metadata):
         # Clip The Video File Based On The Detected Frames
         videos_to_delete = []
         clipped_video_save_path = os.path.join(UPLOAD_PATH, upload_info.filename)
-        for idx, detected in enumerate(detected_frames):
-            start_time = max(0, float(detected.second - 2.5))
-            end_time = min(video_duration, float(detected.second + 2.5))
+        for idx, detected in enumerate(detected_violations):
+            start_time = max(0, float(detected.second - 3))
+            end_time = min(video_duration, float(detected.second + 3))
             ffmpeg_extract_subclip(
                 video_save_path,
                 start_time,
@@ -327,14 +338,14 @@ def moderate_video(upload_info: UploadInfo, metadata):
             )
 
         # Upload The Clipped Video Files To Google Cloud Storage
-        for idx, detected in enumerate(detected_frames):
+        for idx, detected in enumerate(detected_violations):
             videos_to_delete.append(f"{clipped_video_save_path}_{idx}.mp4")
             bucket_path = f"moderation/{upload_info.user_id}/{upload_info.filename}/videos/{upload_info.user_id}_{upload_info.filename}_{idx}.mp4"
             detected.clip_url = bucket_path
             upload_to_gcloud(bucket_path, f"{clipped_video_save_path}_{idx}.mp4")
 
         # Convert From Frameresult Object To Dict
-        parsed_result = [item.as_dict() for item in detected_frames]
+        parsed_result = [item.as_dict() for item in detected_violations]
 
         # Delete Local Images And Videos
         for frame in moderation_data.frames:
@@ -361,12 +372,13 @@ def moderate_video(upload_info: UploadInfo, metadata):
         delete_file_gcloud(f"uploads/{upload_info.user_id}_{upload_info.filename}.mp4")
 
         logger.info("Videos uploaded to gcloud")
-    except Exception as e:
-        logger.error(e)
+    except Exception as err:
+        logger.error(str(err))
         MODERATION_DB.update_one(
             {"_id": ObjectId(upload_info.saved_id)},
             {"$set": initial_data},
         )
+        raise err
 
 
 # Generate HTML Tags To Display The Moderation Result In A PDF Report
@@ -394,3 +406,48 @@ def generate_html_tags(result):
         """
         count += 1
     return html_tags
+
+def combine_detected_results(detected_frames: list[ModerationResult], detected_audio):
+    temp_dict = {}
+    for detected in detected_frames:
+        temp_dict[detected.second] = detected
+
+    for detected in detected_audio:
+        floor_time = floor(float(detected["time"]))
+        ceil_time = ceil(float(detected["time"]))
+        if floor_time in temp_dict:
+            temp_dict[floor_time].category.append("SARA")
+        elif ceil_time in temp_dict:
+            temp_dict[ceil_time].category.append("SARA")
+        else:
+            temp_dict[floor_time] =  ModerationResult(
+                        second=floor_time,
+                        clip_url="",
+                        decision=str(ModerationDecision.PENDING),
+                        category=["SARA"],
+                    )
+
+    results_list = list(temp_dict.values())
+    results_list.sort(key=lambda x: x.second)
+    return results_list
+
+def combine_results(results: list[ModerationResult]):
+    combined_results: list[ModerationResult] = []
+    for i, result in enumerate(results):
+        if i == 0:
+            combined_results.append(result)
+        elif i == len(results) - 1:
+            if result.second - combined_results[-1].second >= 3:
+                combined_results.append(result)
+            else:
+                combined_results[-1].category.extend(result.category)
+        else:
+            if result.second - combined_results[-1].second >= 3:
+                combined_results.append(result)
+            else:
+                combined_results[-1].category.extend(result.category)
+
+    for result in combined_results:
+        result.category = list(set(result.category))
+
+    return combined_results

@@ -31,7 +31,7 @@ user_bp = Blueprint("user", __name__)
 @user_bp.route("/users", methods=["GET"])
 @token_required
 @is_admin
-def get_all_users(_):
+def get_all_users(current_user: User):
     response = PaginateResponse()
 
     try:
@@ -48,7 +48,7 @@ def get_all_users(_):
         response.set_response(result, HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -79,7 +79,7 @@ def get_user(current_user: User, user_id: str):
             raise ApplicationException("Akses Ditolak", HTTPStatus.UNAUTHORIZED)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -106,7 +106,7 @@ def signup():
         response.set_response(signup_user(user_data), HTTPStatus.CREATED)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -132,7 +132,7 @@ def login():
         response.set_response(login_user(user_data), HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -172,7 +172,6 @@ def update_user_data(current_user: User):
                 confirm_password=request.form.get("confirm_password"),
             )
 
-        logger.error(user_data)
         update_success = update_user(user_data)
 
         if update_success:
@@ -181,7 +180,7 @@ def update_user_data(current_user: User):
             raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
@@ -214,7 +213,7 @@ def delete_user(current_user: User, user_id: str):
             raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
         else:
@@ -250,7 +249,7 @@ def update_user_role(current_user: User):
             raise ApplicationException("Pengguna Tidak Ditemukan", HTTPStatus.NOT_FOUND)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)

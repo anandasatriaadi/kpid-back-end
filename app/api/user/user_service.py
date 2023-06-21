@@ -131,8 +131,8 @@ def signup_user(create_request: CreateUserRequest) -> bool:
                 # Setting the response with the access token and user data
                 result = {"token": access_token, "user_data": inserted_user}
                 return result
-            except Exception as e:
-                logger.error(e)
+            except Exception as err:
+                logger.error(str(err))
                 USER_DB.delete_one({"_id": inserted_id})
                 raise ApplicationException(
                     "Terjadi Kesalahan Saat Membuat Pengguna",
@@ -333,6 +333,5 @@ def aggregate_user_login() -> bool:
 
         return True
     except Exception as err:
-        raise err
-        logger.error(err)
+        logger.error(str(err))
         return False

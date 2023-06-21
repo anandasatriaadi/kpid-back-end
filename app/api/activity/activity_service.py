@@ -58,7 +58,7 @@ def get_activity_by_params(
         return output, metadata
 
     except Exception as err:
-        logger.error(err)
+        logger.error(str(err))
         # Setting the response for internal server error
         raise ApplicationException(
             "Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR

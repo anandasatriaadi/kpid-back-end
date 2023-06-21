@@ -83,7 +83,6 @@ def detect_objects(frame_results: List[FrameResult]) -> List[ModerationResult]:
 
             if detected_valid is True:
                 if results.get(frame_result["frame_url"]):
-                    logger.error(results[frame_result["frame_url"]])
                     results[frame_result["frame_url"]].category.append(category.upper())
                 else:
                     results[frame_result["frame_url"]] = ModerationResult(
@@ -92,7 +91,7 @@ def detect_objects(frame_results: List[FrameResult]) -> List[ModerationResult]:
                         decision=str(ModerationDecision.PENDING),
                         category=[category.upper()],
                     )
-                    logger.error(results[frame_result["frame_url"]])
+                logger.error(results[frame_result["frame_url"]])
         final_memory = process.memory_info().rss / (1024 * 1024)
         logger.info(f"Detection of {category} took {time.time() - start_time} seconds and uses {final_memory - initial_memory} MB of memory.")
 

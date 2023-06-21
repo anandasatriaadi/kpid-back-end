@@ -31,7 +31,7 @@ def get_all_pasals(_):
         response.set_response(result, HTTPStatus.OK)
 
     except (Exception, ApplicationException) as err:
-        logger.error(err)
+        logger.error(str(err))
 
         if isinstance(err, ApplicationException):
             response.set_response(str(err), err.status)
