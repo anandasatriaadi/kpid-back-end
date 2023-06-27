@@ -417,14 +417,17 @@ def combine_detected_results(detected_frames: list[ModerationResult], detected_a
         ceil_time = ceil(float(detected["time"]))
         if floor_time in temp_dict:
             temp_dict[floor_time].category.append("SARA")
+            temp_dict[floor_time].label.append("kata_kasar")
         elif ceil_time in temp_dict:
             temp_dict[ceil_time].category.append("SARA")
+            temp_dict[ceil_time].label.append("kata_kasar")
         else:
             temp_dict[floor_time] =  ModerationResult(
                         second=floor_time,
                         clip_url="",
                         decision=str(ModerationDecision.PENDING),
                         category=["SARA"],
+                        label=["kata_kasar"],
                     )
 
     results_list = list(temp_dict.values())

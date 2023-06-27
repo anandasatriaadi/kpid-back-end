@@ -10,6 +10,7 @@ class ModerationResult:
     clip_url: str = None
     decision: ModerationDecision = None
     category: List[str] = None
+    label: List[str] = None
 
     def as_dict(self):
         data = self.__dict__.copy()
