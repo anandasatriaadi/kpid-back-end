@@ -8,11 +8,14 @@ WORKDIR /usr/src/app
 RUN apt-get update
 RUN apt-get install -y ffmpeg
 RUN apt-get install -y wkhtmltopdf
-RUN apt-get install -y protobuf-compiler
-RUN apt-get install -y p7zip-full wget git 
+RUN apt-get install -y p7zip-full wget git curl unzip
 RUN pip install --upgrade pip
 COPY ./requirements.txt /usr/src/app/requirements.txt
 RUN pip install -r requirements.txt
+RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.20.3/protoc-3.20.3-linux-x86_64.zip \
+    && unzip protoc-3.20.3-linux-x86_64.zip -d /usr/local \
+    && rm protoc-3.20.3-linux-x86_64.zip
+ENV PATH="${PATH}:/usr/local/bin"
 
 # Downloads models from tensorflow model and remove unused folders to minimize image size
 RUN git clone https://github.com/tensorflow/models.git ./ai_utils/models \
